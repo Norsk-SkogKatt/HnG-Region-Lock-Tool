@@ -2,7 +2,7 @@
 
 > Heroes & Generals 伺服器鎖區工具 — 透過 Windows 防火牆封鎖指定地區 IP，降低延遲、改善連線品質。
 
-原版 `HG服务器锁定v2.1.exe`（PyInstaller 打包）經反編譯分析後重新實作，採用 **ipinfo.io** 動態 IP 地理查詢取代原版硬編碼，並提供 **GUI 版** 與 **CLI 版** 兩種介面。
+由原作者在遺失原始碼後，從 `HG服务器锁定v2.1.exe` 反編譯分析重新實作。採用 **ipinfo.io** 動態 IP 地理查詢取代原版硬編碼 IP，並提供 **GUI 版** 與 **CLI 版** 兩種介面。
 
 ---
 
@@ -176,6 +176,5 @@ MIT License
 
 ## 🙏 致謝
 
-- 原版 `HG服务器锁定v2.1.exe` 作者提供的靈感
 - [ipinfo.io](https://ipinfo.io) 提供的 IP 地理定位服務
 - Heroes & Generals 社群玩家們
