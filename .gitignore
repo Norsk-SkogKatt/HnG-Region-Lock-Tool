@@ -1,0 +1,25 @@
+# HG 锁区工具 .gitignore
+
+# 打包产物
+*.exe
+*.spec
+
+# 构建临时目录
+build/
+dist/
+__pycache__/
+*.pyc
+
+# 日志
+*.log
+
+# 配置文件（含本地路径）
+HG_config.json
+
+# Windows 系统文件
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/

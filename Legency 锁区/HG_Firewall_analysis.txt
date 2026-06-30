@@ -1,0 +1,370 @@
+=== HG服务器锁定v2.1 - 反编译分析 ===
+由于Python 3.12字节码暂无完美反编译工具，此为字节码结构分析
+============================================================
+
+--- <module> (file: HG_Firewall.py, line 1) ---
+  const: '\nHG 伺服器鎖定 v2.0 - Windows 防火牆管理工具\n使用 netsh advfirewall 管理應用程式專用封鎖規則\n'
+  const: '139.99.120.230'
+  const: 'AS'
+  const: 'SG-Singapore'
+  const: '135.136.10.86'
+  const: 'HK-HongKong'
+  const: '139.99.149.14'
+  const: 'OC'
+  const: 'AU-Sydney'
+  const: '144.217.77.9'
+  const: 'NA'
+  const: 'CA-Quebec'
+  const: '162.213.248.83'
+  const: 'US-Phoenix'
+  const: '147.135.214.90'
+  const: 'EU'
+  const: 'FR-Dunkirk'
+  const: '147.135.252.98'
+  const: '149.202.215.48'
+  const: '37.187.226.17'
+  const: '51.75.119.5'
+  const: '51.77.67.200'
+  const: 'DE-Frankfurt'
+  const: '51.83.236.30'
+  const: 'PL-Warsaw'
+  const: '51.91.74.237'
+  const: 'hngsync'
+  const: 'HeroesAndGeneralsDesktop'
+  const: ''
+  const: '__main__'
+  const: '\n[!] 发生未预期的错误，请截图或记录上方红色文字。'
+  const: '    你也可以检查 HG_lock.log 中的错误日志。'
+  const: '\n按任意键离开...'
+  names: ['__doc__', 'subprocess', 'sys', 'os', 'ctypes', 'time', 'datetime', 'json', 'ALL_IPS', 'APP_NAMES', 'set_console_size', 'progress_bar', 'LOG_FILE', '_get_base_dir', 'log_init', 'log_raw', 'log_info', 'log_action', 'log_error', 'CONFIG_FILE', '_config_path', 'load_config', 'save_config', 'is_admin', 'run_as_admin', 'run_netsh', 'get_rule_lines', 'remove_old_v1_rules', 'remove_legacy_global_rule', 'add_block_rules', 'remove_all_rules', 'show_current_rules', 'select_hn_root', 'invoke_block', 'write_banner', 'main', '__name__', 'app_paths', 'Exception', 'traceback', 'print_exc', 'print', 'msvcrt', 'getch', 'input']
+  varnames: []
+
+  --- set_console_size (file: HG_Firewall.py, line 35) ---
+    const: 'HG 伺服器鎖定 v2.0'
+    const: 'mode con cols='
+    const: ' lines='
+    names: ['ctypes', 'windll', 'kernel32', 'SetConsoleTitleW', 'os', 'system', 'GetStdHandle', 'wintypes', '_COORD', 'SetConsoleScreenBufferSize']
+    varnames: ['cols', 'lines', 'h', 'wintypes', 'buf']
+
+  --- progress_bar (file: HG_Firewall.py, line 48) ---
+    const: '顯示類似 pacman 的 ASCII 進度條'
+    const: '█'
+    const: '░'
+    const: '\r  '
+    const: '  ['
+    const: '] '
+    const: '/'
+    const: ' ('
+    const: '%)    '
+    const: '\n'
+    names: ['sys', 'stdout', 'write', 'flush']
+    varnames: ['current', 'total', 'suffix', 'bar_width', 'filled', 'bar', 'pct']
+
+  --- _get_base_dir (file: HG_Firewall.py, line 62) ---
+    const: 'frozen'
+    names: ['getattr', 'sys', 'os', 'path', 'dirname', 'executable', 'abspath', '__file__']
+    varnames: []
+
+  --- log_init (file: HG_Firewall.py, line 67) ---
+    const: 'HG_lock.log'
+    const: 'w'
+    const: 'utf-8'
+    const: '=== HG 伺服器鎖定 v2.0 日誌 ===\n'
+    const: '啟動時間: '
+    const: '%Y-%m-%d %H:%M:%S'
+    const: '\n\n'
+    names: ['os', 'path', 'join', '_get_base_dir', 'LOG_FILE', 'open', 'write', 'datetime', 'now', 'strftime']
+    varnames: ['f']
+
+  --- log_raw (file: HG_Firewall.py, line 78) ---
+    const: 'a'
+    const: 'utf-8'
+    const: '\n'
+    names: ['open', 'LOG_FILE', 'write']
+    varnames: ['text', 'f']
+
+  --- log_info (file: HG_Firewall.py, line 85) ---
+    const: '%Y-%m-%d %H:%M:%S'
+    const: '['
+    const: '] [INFO] '
+    names: ['datetime', 'now', 'strftime', 'log_raw']
+    varnames: ['msg', 'ts']
+
+  --- log_action (file: HG_Firewall.py, line 89) ---
+    const: '%Y-%m-%d %H:%M:%S'
+    const: '['
+    const: '] [ACTION] '
+    names: ['datetime', 'now', 'strftime', 'log_raw']
+    varnames: ['msg', 'ts']
+
+  --- log_error (file: HG_Firewall.py, line 93) ---
+    const: '%Y-%m-%d %H:%M:%S'
+    const: '['
+    const: '] [ERROR] '
+    names: ['datetime', 'now', 'strftime', 'log_raw']
+    varnames: ['msg', 'ts']
+
+  --- _config_path (file: HG_Firewall.py, line 100) ---
+    const: 'HG_config.json'
+    names: ['os', 'path', 'join', '_get_base_dir']
+    varnames: []
+
+  --- load_config (file: HG_Firewall.py, line 103) ---
+    const: 'r'
+    const: 'utf-8'
+    names: ['_config_path', 'os', 'path', 'isfile', 'open', 'json', 'load']
+    varnames: ['fp', 'f']
+
+  --- save_config (file: HG_Firewall.py, line 113) ---
+    const: 'w'
+    const: 'utf-8'
+    names: ['_config_path', 'open', 'json', 'dump']
+    varnames: ['hn_path', 'last_mode', 'fp', 'f']
+
+  --- is_admin (file: HG_Firewall.py, line 122) ---
+    names: ['ctypes', 'windll', 'shell32', 'IsUserAnAdmin']
+    varnames: []
+
+  --- run_as_admin (file: HG_Firewall.py, line 128) ---
+    const: 'frozen'
+    const: 'runas'
+    const: ' '
+    names: ['getattr', 'sys', 'executable', 'os', 'path', 'abspath', 'argv', 'ctypes', 'windll', 'shell32', 'ShellExecuteW', 'join', 'exit']
+    varnames: ['exe_path']
+
+  --- run_netsh (file: HG_Firewall.py, line 137) ---
+    const: '執行 netsh 命令，回傳 stdout，錯誤時記錄日誌'
+    const: 'utf-8'
+    const: 'replace'
+    const: 'netsh 返回 '
+    const: ': '
+    const: ''
+    const: 'netsh 異常: '
+    names: ['subprocess', 'run', 'returncode', 'stderr', 'decode', 'strip', 'log_error', 'stdout', 'Exception']
+    varnames: ['args', 'result', 'err', 'msg', 'e']
+
+  --- get_rule_lines (file: HG_Firewall.py, line 153) ---
+    const: '取得防火牆規則中所有含關鍵字的行（PowerShell 優先，支援多語言介面）'
+    const: "(Get-NetFirewallRule | Where-Object { $_.DisplayName -like '"
+    const: "*' }).DisplayName"
+    const: 'powershell'
+    const: '-NoProfile'
+    const: '-Command'
+    const: 'utf-8'
+    const: 'replace'
+    const: ':'
+    names: ['subprocess', 'run', 'CREATE_NO_WINDOW', 'stdout', 'decode', 'strip', 'splitlines', 'run_netsh', 'split', 'len', 'append']
+    varnames: ['keyword', 'ps_code', 'result', 'output', 'n', 'names', 'lines', 'line', 'stripped', 'parts', 'name']
+
+  --- remove_old_v1_rules (file: HG_Firewall.py, line 184) ---
+    const: '[*] 正在檢查 v1.1 舊版規則…'
+    const: 'HG-[\\d\\.]+\\([A-Za-z-]+\\)-(TCP|UDP)$'
+    const: ':'
+    const: '  [-] '
+    const: 'delete'
+    const: 'rule'
+    const: 'name='
+    const: '  [✓] 已清除 '
+    const: ' 條舊版規則'
+    const: '清除 '
+    const: ' 條 v1.1 舊版規則'
+    const: '  [-] 沒有舊版規則'
+    const: '無 v1.1 舊版規則'
+    names: ['re', 'print', 'run_netsh', 'splitlines', 'search', 'strip', 'split', 'len', 'log_action', 'log_info']
+    varnames: ['re', 'rules', 'count', 'line', 'parts', 'name']
+
+  --- remove_legacy_global_rule (file: HG_Firewall.py, line 205) ---
+    const: 'HG_internet_disable_rule_output'
+    const: '[*] 偵測到全域舊規則：HG_internet_disable_rule_output'
+    const: '  [-] 已移除'
+    const: '移除殘留全域舊規則 HG_internet_disable_rule_output'
+    names: ['run_netsh', 'print', 'log_action']
+    varnames: ['output']
+
+  --- add_block_rules (file: HG_Firewall.py, line 214) ---
+    const: 'HG-'
+    const: '('
+    const: ')-'
+    const: '-IN'
+    const: '-OUT'
+    const: 'add'
+    const: 'rule'
+    const: 'name='
+    const: 'dir=in'
+    const: 'remoteip='
+    const: 'action=block'
+    const: 'program='
+    const: 'protocol=any'
+    const: ') '
+    const: ' IN'
+    const: 'dir=out'
+    const: ' OUT'
+    const: '已新增 '
+    names: ['APP_NAMES', 'run_netsh', 'progress_bar', 'log_action']
+    varnames: ['ip', 'country', 'program_paths', 'current', 'total', 'app', 'name_in', 'name_out', 'prog']
+
+  --- remove_all_rules (file: HG_Firewall.py, line 238) ---
+    const: '使用 PowerShell 直接刪除所有 HG-* 防火牆規則（無編碼問題）'
+    const: '[*] 正在清除 HG 防火牆規則…'
+    const: "@(Get-NetFirewallRule | Where-Object { $_.DisplayName -like 'HG-*' }).Count"
+    const: 'powershell'
+    const: '-NoProfile'
+    const: '-Command'
+    const: 'utf-8'
+    const: 'replace'
+    const: '?'
+    const: "Get-NetFirewallRule | Where-Object { $_.DisplayName -like 'HG-*' } | Remove-NetFirewallRule -Confirm:$false"
+    const: '0'
+    const: '  [-] 沒有找到 HG 規則'
+    const: '已清除 '
+    const: ' 條 HG 規則'
+    const: '  [i] 剩餘 '
+    const: ' 條（可能為系統規則）'
+    const: '  [✓] 已清除 '
+    const: ' 條規則'
+    names: ['print', 'subprocess', 'run', 'CREATE_NO_WINDOW', 'stdout', 'decode', 'strip', 'log_action']
+    varnames: ['ps', 'result', 'before', 'ps_del', 'result2', 'after', 'remaining']
+
+  --- show_current_rules (file: HG_Firewall.py, line 276) ---
+    const: '\n[=] 現有 HG 防火牆規則：'
+    const: 'HG-'
+    const: '  (無)'
+    const: '  '
+    names: ['print', 'get_rule_lines']
+    varnames: ['rules', 'r']
+
+  --- select_hn_root (file: HG_Firewall.py, line 286) ---
+    const: 'hn_path'
+    const: ''
+    const: '/'
+    const: '\\'
+    const: '[*] 自動使用上次路徑：'
+    const: '使用上次路徑: '
+    const: '[!] 上次路徑已失效（找不到程式），請重新輸入'
+    const: '[?] 請指定 HnG 遊戲安裝路徑'
+    const: '路徑: '
+    const: '"'
+    const: "'"
+    const: '[!] 路徑不得留空'
+    const: '.exe'
+    const: '[!] 找不到以下檔案：'
+    const: '    - '
+    const: '    請確認路徑後再試。\n'
+    const: '按 Enter 重試，或輸入 Q 離開: '
+    const: 'Q'
+    const: '\n[✓] 已確認以下程式：'
+    const: '    '
+    const: '遊戲路徑: '
+    const: 'last_mode'
+    names: ['load_config', 'get', 'replace', 'all', 'APP_NAMES', 'print', 'log_info', 'input', 'strip', 'rstrip', 'os', 'path', 'join', 'isfile', 'append', 'upper', 'sys', 'exit', 'save_config']
+    varnames: ['cfg', 'valid', 'path', 'missing', 'app', 'exe', 'm', 'retry']
+
+    --- <genexpr> (file: HG_Firewall.py, line 290) ---
+      const: '.exe'
+      names: ['os', 'path', 'isfile', 'join']
+      varnames: ['.0', 'app']
+
+  --- invoke_block (file: HG_Firewall.py, line 332) ---
+    const: '\n[+] '
+    const: ' …'
+    const: '    共 '
+    const: ' 個 IP，將建立 '
+    const: ' 條規則\n'
+    const: 'ip'
+    const: 'country'
+    const: '\n[✓] '
+    const: ' 個 IP 已雙向封鎖（傳入 + 傳出）'
+    const: '：'
+    const: ' 個 IP 已雙向封鎖'
+    names: ['print', 'remove_all_rules', 'time', 'sleep', 'ALL_IPS', 'len', 'APP_NAMES', 'add_block_rules', 'app_paths', 'show_current_rules', 'log_action']
+    varnames: ['label', 'filter_func', 'x', 'block_list', 'total', 'current', 'item']
+
+  --- write_banner (file: HG_Firewall.py, line 351) ---
+    const: 'cls'
+    const: '╔═══════════════════════════════════════════╗'
+    const: '║        HG 伺服器鎖定 v2.0                 ║'
+    const: '║        雙向（傳入 + 傳出）封鎖            ║'
+    const: '╚═══════════════════════════════════════════╝'
+    const: '目標程式：hngsync.exe、HeroesAndGeneralsDesktop.exe'
+    const: '封鎖模式：傳入 / 傳出雙向封鎖，全協議，全埠'
+    const: '規則計算說明：'
+    const: '  每個 IP × 2 個程式 × 2 方向 = 每 IP 4 條規則'
+    const: '  各選項將產生的規則數量：'
+    const: '    [1] AS-EU Only → 封鎖 3 個非亞歐 IP → 3×4 =  12 條規則'
+    const: '    [2] EU Only   → 封鎖 5 個非歐洲 IP → 5×4 =  20 條規則'
+    const: '    [3] AS Only   → 封鎖 11 個非亞洲 IP → 11×4 = 44 條規則'
+    const: '    [4] HK Only   → 封鎖 12 個非香港 IP → 12×4 = 48 條規則'
+    const: '    [5] Clear     → 清除所有規則 → 0 條'
+    names: ['os', 'system', 'print']
+    varnames: []
+
+  --- main (file: HG_Firewall.py, line 372) ---
+    const: '使用者授權管理員權限'
+    const: '[!] 需要管理員權限，正在請求…'
+    const: '.exe'
+    const: 'last_mode'
+    const: ''
+    const: '  （目前設定：'
+    const: '）'
+    const: 'IP 分佈：'
+    const: '  歐洲（EU）      法國×6  德國×1  波蘭×1'
+    const: '  亞洲（AS）      新加坡×1  香港×1'
+    const: '  北美（NA）      加拿大×1  美國×1'
+    const: '  大洋洲（OC）    澳洲×1'
+    const: '操作：'
+    const: '  [1] AS-EU Only   只留亞洲 + 歐洲，封鎖北美 + 大洋洲'
+    const: '  [2] EU Only     封鎖歐洲以外所有 IP'
+    const: '  [3] AS Only     封鎖亞洲以外所有 IP'
+    const: '  [4] HK Only     僅連接香港，封鎖其餘所有 IP'
+    const: '  [5] Clear       移除所有 HG 防火牆規則'
+    const: '  [6] 變更路徑    重新指定 HnG 資料夾'
+    const: '  [0] 離開'
+    const: '\n請選擇 (0-6): '
+    const: '1'
+    const: '僅連亞歐'
+    const: 'AS-EU Only'
+    const: '2'
+    const: '僅連歐洲'
+    const: 'EU Only'
+    const: '3'
+    const: '僅連亞洲'
+    const: 'AS Only'
+    const: '4'
+    const: '僅連香港'
+    const: 'HK Only'
+    const: '5'
+    const: '\n[+] 正在移除防火牆規則…'
+    const: '\n[✓] 完成'
+    const: '已執行 Clear，所有 HG 規則已清除'
+    const: '無'
+    const: '6'
+    const: '[✓] 路徑已更新'
+    const: '0'
+    const: '\n[-] 再見'
+    const: '\n[!] 無效選項'
+    const: '按 Enter 繼續...'
+    names: ['log_init', 'log_info', 'is_admin', 'print', 'run_as_admin', 'set_console_size', 'remove_old_v1_rules', 'remove_legacy_global_rule', 'write_banner', 'load_config', 'select_hn_root', 'app_paths', 'APP_NAMES', 'os', 'path', 'join', 'get', 'input', 'strip', 'invoke_block', 'save_config', 'remove_all_rules', 'show_current_rules', 'log_action']
+    varnames: ['cfg', 'hn_path', 'app', 'saved_mode', 'mode_hint', 'choice']
+
+    --- <lambda> (file: HG_Firewall.py, line 423) ---
+      const: 'region'
+      names: []
+      varnames: ['x']
+
+    --- <lambda> (file: HG_Firewall.py, line 426) ---
+      const: 'region'
+      const: 'EU'
+      names: []
+      varnames: ['x']
+
+    --- <lambda> (file: HG_Firewall.py, line 429) ---
+      const: 'region'
+      const: 'AS'
+      names: []
+      varnames: ['x']
+
+    --- <lambda> (file: HG_Firewall.py, line 432) ---
+      const: 'ip'
+      const: '135.136.10.86'
+      names: []
+      varnames: ['x']
