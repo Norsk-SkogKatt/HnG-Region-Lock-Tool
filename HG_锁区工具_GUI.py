@@ -40,6 +40,7 @@ SERVERS: list[dict[str, str]] = [
 ]
 
 APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
+REQUERY_DAYS = 7  # ipinfo.io 查詢快取天數
 IPINFO_TOKEN: str = ""
 
 
@@ -106,6 +107,30 @@ def save_config(hn_path: str = "", last_mode: str = "") -> None:
     if last_mode:
         cfg["last_mode"] = last_mode
     cfg["last_updated"] = datetime.now().isoformat()
+    try:
+        with open(_config_path(), "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+def _should_requery(cfg: dict) -> bool:
+    """Check if 7 days have passed since last ipinfo query."""
+    last_time = cfg.get("last_query_time", "")
+    if not last_time:
+        return True
+    try:
+        last = datetime.fromisoformat(last_time)
+        return (datetime.now() - last).days >= REQUERY_DAYS
+    except (ValueError, TypeError):
+        return True
+
+
+def _cache_query_result(servers_info: list[dict]) -> None:
+    """Save ipinfo query result + timestamp to config."""
+    cfg = load_config()
+    cfg["last_query_time"] = datetime.now().isoformat()
+    cfg["cached_servers"] = servers_info
     try:
         with open(_config_path(), "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
@@ -413,43 +438,48 @@ class HGLockerGUI:
 
         # 背景執行初始化
         def task() -> None:
+            global servers_info_global
             try:
-                # 1. 清除舊規則
-                log_info("初始化：清除舊規則")
-                old = remove_all_rules_silent()
-                if old:
+                # 1. 載入或查詢 IP 資訊（自動判斷 7 天快取）
+                cfg = load_config()
+                if not _should_requery(cfg) and "cached_servers" in cfg:
+                    cached = cfg["cached_servers"]
+                    self.servers_info = cached
+                    servers_info_global = cached
+                    last_time = cfg.get("last_query_time", "?")[:10]
+                    log_info(f"使用快取 IP 資料（查詢時間: {cfg.get('last_query_time', '?')}）")
+                    self.root.after(0, lambda t=last_time: self.lbl_busy.configure(
+                        text=f"使用快取 IP 資料（{t}）"))
+                else:
                     self.root.after(0, lambda: self.lbl_busy.configure(
-                        text=f"已清除 {old} 條舊規則"))
+                        text="正在查詢伺服器 IP…"))
+                    log_info("初始化：查詢 IP 資訊")
+                    self.servers_info = []
+                    total = len(SERVERS)
+                    for i, svr in enumerate(SERVERS, 1):
+                        ip = svr["ip"]
+                        info = query_ipinfo(ip)
+                        if info:
+                            self.servers_info.append({
+                                "ip": ip,
+                                "country": info.get("country", ""),
+                                "region": info.get("region", ""),
+                                "city": info.get("city", ""),
+                                "org": info.get("org", ""),
+                                "loc": info.get("loc", ""),
+                            })
+                            log_info(f"{ip} -> {info.get('country','')}/{info.get('region','')}")
+                        else:
+                            self.servers_info.append({**svr, "city": "", "org": "", "loc": ""})
+                            log_info(f"{ip} 查詢失敗，使用預設: {svr['country']}")
+                        if i < total:
+                            time.sleep(0.3)
 
-                # 2. 查詢 IP 資訊
-                self.root.after(0, lambda: self.lbl_busy.configure(text="正在查詢伺服器 IP…"))
-                log_info("初始化：查詢 IP 資訊")
-                self.servers_info = []
-                total = len(SERVERS)
-                for i, svr in enumerate(SERVERS, 1):
-                    ip = svr["ip"]
-                    info = query_ipinfo(ip)
-                    if info:
-                        self.servers_info.append({
-                            "ip": ip,
-                            "country": info.get("country", ""),
-                            "region": info.get("region", ""),
-                            "city": info.get("city", ""),
-                            "org": info.get("org", ""),
-                            "loc": info.get("loc", ""),
-                        })
-                        log_info(f"{ip} -> {info.get('country','')}/{info.get('region','')}")
-                    else:
-                        self.servers_info.append({**svr, "city": "", "org": "", "loc": ""})
-                        log_info(f"{ip} 查詢失敗，使用預設: {svr['country']}")
-                    if i < total:
-                        time.sleep(0.3)
+                    # 更新全域變數 + 快取結果
+                    servers_info_global = self.servers_info
+                    _cache_query_result(self.servers_info)
 
-                # 更新全域變數
-                global servers_info_global
-                servers_info_global = self.servers_info
-
-                # 3. 更新 IP 顯示
+                # 2. 更新 IP 顯示
                 self.root.after(0, self._show_ip_distribution)
 
                 # 4. 讀取／選擇路徑
@@ -639,6 +669,7 @@ class HGLockerGUI:
                 self.servers_info = new_info
                 global servers_info_global
                 servers_info_global = new_info
+                _cache_query_result(new_info)
                 self.root.after(0, self._show_ip_distribution)
                 log_action("重新查詢完成")
                 self.root.after(0, lambda: messagebox.showinfo("完成", "IP 查詢已完成"))

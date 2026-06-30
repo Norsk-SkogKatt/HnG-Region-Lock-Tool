@@ -39,6 +39,8 @@ SERVERS: list[dict[str, str]] = [
 
 APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
 
+REQUERY_DAYS = 7  # ipinfo.io 查詢快取天數
+
 # ── 全域狀態 ──
 LOG_FILE: str = ""
 CONFIG_FILE: str = ""
@@ -122,6 +124,46 @@ def save_config(hn_path: str = "", last_mode: str = "") -> None:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
     except OSError:
         pass
+
+
+def _should_requery(cfg: dict) -> bool:
+    """Check if 7 days have passed since last ipinfo query — if so, re-query."""
+    last_time = cfg.get("last_query_time", "")
+    if not last_time:
+        return True
+    try:
+        last = datetime.fromisoformat(last_time)
+        return (datetime.now() - last).days >= REQUERY_DAYS
+    except (ValueError, TypeError):
+        return True
+
+
+def _cache_query_result(servers_info: list[dict]) -> None:
+    """Save ipinfo query result + timestamp to config."""
+    cfg = load_config()
+    cfg["last_query_time"] = datetime.now().isoformat()
+    cfg["cached_servers"] = servers_info
+    try:
+        with open(_config_path(), "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+def _load_or_query_servers() -> list[dict]:
+    """Load cached servers if <7 days old, otherwise query ipinfo.io."""
+    cfg = load_config()
+    if not _should_requery(cfg) and "cached_servers" in cfg:
+        cached = cfg["cached_servers"]
+        last_time = cfg.get("last_query_time", "?")[:10]
+        print(f"\n[+] 使用快取 IP 資料（{last_time}，{REQUERY_DAYS} 天內有效）")
+        print(f"    共 {len(cached)} 個伺服器")
+        log_info(f"使用快取 IP 資料（查詢時間: {cfg.get('last_query_time', '?')}）")
+        return cached
+    # 需要重新查詢
+    result = update_server_info()
+    _cache_query_result(result)
+    return result
 
 
 # ═══════════════════════════════════════════════
@@ -498,11 +540,10 @@ def main() -> None:
         return
 
     set_console_size()
-    remove_old_rules()
 
-    # 透過 ipinfo.io 查詢 IP 資訊
-    servers_info = update_server_info()
-    print("\n按 Enter 繼續...")
+    # 載入或查詢 IP 資訊（自動判斷 7 天快取）
+    servers_info = _load_or_query_servers()
+    print("\\n按 Enter 繼續...")
     input()
 
     # 選擇遊戲路徑
