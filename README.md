@@ -105,13 +105,57 @@ HG-{IP}({國家})-{程式}-{方向}
 
 ---
 
-## 📦 打包成單檔 EXE
+## 📦 從原始碼建置
+
+### 前置需求
+
+- Python 3.12+
+- pip
+
+### 下載原始碼
 
 ```bash
+git clone https://github.com/Norsk-SkogKatt/HG-Lock-Tool.git
+cd HG-Lock-Tool
+```
+
+### 直接執行（不打包）
+
+```bash
+# CLI 版
+python HG_锁区工具.py
+
+# GUI 版
+python HG_锁区工具_GUI.py
+```
+
+> ⚡ 本專案**無第三方依賴**，僅使用 Python 標準函式庫，下載後即可直接執行。
+
+### 打包成單檔 EXE
+
+使用 PyInstaller 打包為獨立 exe，無需 Python 環境即可執行：
+
+```bash
+# 安裝 PyInstaller
 pip install pyinstaller
+
+# 打包 CLI 版
 pyinstaller --onefile --clean --nowindowed HG_锁区工具.py --name HG服务器锁定v3.0.exe
+
+# 打包 GUI 版
 pyinstaller --onefile --clean --nowindowed HG_锁区工具_GUI.py --name HG服务器锁定v4.0_GUI.exe
 ```
+
+打包完成後，exe 位於 `dist/` 目錄，`build/` 和 `.spec` 可刪除。
+
+### 參數說明
+
+| 參數 | 說明 |
+|---|---|
+| `--onefile` | 打包成單一 exe 檔案 |
+| `--clean` | 清除快取，確保乾淨建置 |
+| `--nowindowed` | 不顯示主控台視窗（GUI 版建議使用，CLI 版則保留主控台） |
+| `--name` | 指定輸出檔名 |
 
 ---
 
