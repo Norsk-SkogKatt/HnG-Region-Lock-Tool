@@ -318,29 +318,24 @@ class HGLockerGUI:
         btn_style = {"font": ("Segoe UI", 13, "bold"), "width": 14}
 
         self.btn_1 = tk.Button(btn_frame, text="① AS-EU Only\n只留亞洲+歐洲", **btn_style,
-                               bg="#2d6a4f", fg="white", activebackground="#40916c",
-                               command=lambda: self._on_mode(1), relief=tk.RAISED, bd=2)
+                               command=lambda: self._on_mode(1))
         self.btn_1.grid(row=0, column=0, padx=5, pady=4)
 
         self.btn_2 = tk.Button(btn_frame, text="② EU Only\n只留歐洲", **btn_style,
-                               bg="#1b4332", fg="white", activebackground="#2d6a4f",
-                               command=lambda: self._on_mode(2), relief=tk.RAISED, bd=2)
+                               command=lambda: self._on_mode(2))
         self.btn_2.grid(row=0, column=1, padx=5, pady=4)
 
         self.btn_3 = tk.Button(btn_frame, text="③ AS Only\n只留亞洲", **btn_style,
-                               bg="#5a189a", fg="white", activebackground="#7b2cbf",
-                               command=lambda: self._on_mode(3), relief=tk.RAISED, bd=2)
+                               command=lambda: self._on_mode(3))
         self.btn_3.grid(row=1, column=0, padx=5, pady=4)
 
         self.btn_4 = tk.Button(btn_frame, text="④ HK Only\n只留香港", **btn_style,
-                               bg="#e07c24", fg="white", activebackground="#f48c06",
-                               command=lambda: self._on_mode(4), relief=tk.RAISED, bd=2)
+                               command=lambda: self._on_mode(4))
         self.btn_4.grid(row=1, column=1, padx=5, pady=4)
 
         # ── 清除按鈕 ──
         self.btn_clear = tk.Button(main, text="⑤ 清除所有規則 Clear", font=("Segoe UI", 11, "bold"),
-                                   bg="#d00000", fg="white", activebackground="#e5383b",
-                                   command=self._on_clear, relief=tk.RAISED, bd=2,
+                                   command=self._on_clear,
                                    width=35, height=2)
         self.btn_clear.pack(pady=(0, 10))
 
@@ -370,20 +365,17 @@ class HGLockerGUI:
 
         self.btn_fw = tk.Button(bottom, text="🛡 開啟防火牆", font=("Segoe UI", 10),
                                 command=self._open_firewall,
-                                bg="#023e8a", fg="white", activebackground="#0077b6",
-                                relief=tk.RAISED, bd=1, padx=8, pady=4)
+                                padx=8, pady=4)
         self.btn_fw.pack(side=tk.LEFT, padx=(0, 4))
 
         self.btn_requery = tk.Button(bottom, text="🔄 重新查詢", font=("Segoe UI", 10),
                                      command=self._on_requery,
-                                     bg="#495057", fg="white", activebackground="#6c757d",
-                                     relief=tk.RAISED, bd=1, padx=8, pady=4)
+                                     padx=8, pady=4)
         self.btn_requery.pack(side=tk.LEFT, padx=4)
 
         self.btn_path = tk.Button(bottom, text="📁 變更路徑", font=("Segoe UI", 10),
                                   command=self._on_change_path,
-                                  bg="#495057", fg="white", activebackground="#6c757d",
-                                  relief=tk.RAISED, bd=1, padx=8, pady=4)
+                                  padx=8, pady=4)
         self.btn_path.pack(side=tk.LEFT, padx=4)
 
         # 狀態燈
@@ -529,6 +521,9 @@ class HGLockerGUI:
         if not path:
             self.lbl_busy.configure(text="尚未設定路徑，部分功能受限")
             return
+
+        # filedialog 返回的路徑可能包含正斜杠，netsh 不支援
+        path = path.replace("/", "\\")
 
         missing = [app for app in APP_NAMES
                    if not os.path.isfile(os.path.join(path, f"{app}.exe"))]
