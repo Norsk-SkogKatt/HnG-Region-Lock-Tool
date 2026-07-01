@@ -280,7 +280,6 @@ def get_rule_lines(keyword: str = "HG-") -> list[str]:
     """取得所有符合關鍵字的防火牆規則名稱"""
     output = run_netsh(["show", "rule", "name=all"])
     names: list[str] = []
-    in_block = False
     for line in output.splitlines():
         stripped = line.strip()
         if keyword in stripped or ":" in stripped:
@@ -545,7 +544,7 @@ def main() -> None:
 
     # 載入或查詢 IP 資訊（自動判斷 7 天快取）
     servers_info = _load_or_query_servers()
-    print("\\n按 Enter 繼續...")
+    print("\n按 Enter 繼續...")
     input()
 
     # 選擇遊戲路徑
@@ -571,7 +570,6 @@ def main() -> None:
 
         print("操作：")
         print(f"  [1] AS-EU Only   只留亞洲 + 歐洲，封鎖北美 + 大洋洲")
-        print("  [2] EU Only      封鎖歐洲以外所有 IP")
         print("  [2] EU Only      封鎖歐洲以外所有 IP")
         print("  [3] AS Only      封鎖亞洲以外所有 IP")
         print("  [4] HK Only      僅連接香港，封鎖其餘所有 IP")
@@ -608,6 +606,7 @@ def main() -> None:
             save_config(hn_path, "無")
         elif choice == "6":
             servers_info = update_server_info()
+            _cache_query_result(servers_info)
             print("\n按 Enter 繼續...")
             input()
         elif choice == "7":
@@ -636,7 +635,7 @@ def set_console_size(cols: int = 90, lines: int = 40) -> None:
         os.system(f"mode con cols={cols} lines={lines}")
 
         h = ctypes.windll.kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE
-        buf = wintypes._COORD(cols, 3000)
+        buf = wintypes.COORD(cols, 3000)
         ctypes.windll.kernel32.SetConsoleScreenBufferSize(h, buf)
     except Exception:
         pass
