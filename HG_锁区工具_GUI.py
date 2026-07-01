@@ -243,7 +243,6 @@ def add_block_rules_silent(ip: str, country: str) -> int:
 
 # ── 全域狀態 ──
 
-servers_info_global: list[dict] = []
 app_paths_global: dict[str, str] = {}
 
 
@@ -425,21 +424,19 @@ class HGLockerGUI:
 
     # ─── 初始化 ───
 
-    def _init_session(self) -> void:  # type: ignore[return]
+    def _init_session(self) -> None:
         """程式啟動時的背景初始化"""
         # 寫入記錄
         log_raw(f"\n{'='*60}\n=== HG 鎖區工具 GUI v4.0 - {datetime.now():%Y-%m-%d %H:%M:%S} ===\n{'='*60}")
 
         # 背景執行初始化
         def task() -> None:
-            global servers_info_global
             try:
                 # 1. 載入或查詢 IP 資訊（自動判斷 7 天快取）
                 cfg = load_config()
                 if not _should_requery(cfg) and "cached_servers" in cfg:
                     cached = cfg["cached_servers"]
                     self.servers_info = cached
-                    servers_info_global = cached
                     last_time = cfg.get("last_query_time", "?")[:10]
                     log_info(f"使用快取 IP 資料（查詢時間: {cfg.get('last_query_time', '?')}）")
                     self.root.after(0, lambda t=last_time: self.lbl_busy.configure(
@@ -469,8 +466,7 @@ class HGLockerGUI:
                         if i < total:
                             time.sleep(0.3)
 
-                    # 更新全域變數 + 快取結果
-                    servers_info_global = self.servers_info
+                    # 快取結果
                     _cache_query_result(self.servers_info)
 
                 # 2. 更新 IP 顯示
@@ -508,8 +504,8 @@ class HGLockerGUI:
                 log_info("初始化完成")
             except Exception as e:
                 log_error(f"初始化錯誤: {e}")
-                self.root.after(0, lambda: self.lbl_busy.configure(
-                    text=f"初始化錯誤: {e}"))
+                self.root.after(0, lambda err=e: self.lbl_busy.configure(
+                    text=f"初始化錯誤: {err}"))
 
         threading.Thread(target=task, daemon=True).start()
 
@@ -538,7 +534,7 @@ class HGLockerGUI:
         global app_paths_global
         app_paths_global = {app: os.path.join(path, f"{app}.exe") for app in APP_NAMES}
         self.lbl_path.configure(text=f"遊戲路徑: {path}")
-        save_config(hn_path=path)
+        save_config(hn_path=path, last_mode=load_config().get("last_mode", ""))
         log_info(f"遊戲路徑: {path}")
         self.lbl_busy.configure(text="路徑已設定")
 
@@ -599,7 +595,7 @@ class HGLockerGUI:
                 ))
             except Exception as e:
                 log_error(f"封鎖失敗: {e}")
-                self.root.after(0, lambda: messagebox.showerror("錯誤", f"封鎖失敗：{e}"))
+                self.root.after(0, lambda err=e: messagebox.showerror("錯誤", f"封鎖失敗：{err}"))
             finally:
                 self.root.after(0, lambda: self._set_busy(False, "就緒"))
 
@@ -625,7 +621,7 @@ class HGLockerGUI:
                 ))
             except Exception as e:
                 log_error(f"清除失敗: {e}")
-                self.root.after(0, lambda: messagebox.showerror("錯誤", f"清除失敗：{e}"))
+                self.root.after(0, lambda err=e: messagebox.showerror("錯誤", f"清除失敗：{err}"))
             finally:
                 self.root.after(0, lambda: self._set_busy(False, "就緒"))
 
@@ -661,15 +657,13 @@ class HGLockerGUI:
                         time.sleep(0.3)
 
                 self.servers_info = new_info
-                global servers_info_global
-                servers_info_global = new_info
                 _cache_query_result(new_info)
                 self.root.after(0, self._show_ip_distribution)
                 log_action("重新查詢完成")
                 self.root.after(0, lambda: messagebox.showinfo("完成", "IP 查詢已完成"))
             except Exception as e:
                 log_error(f"重新查詢失敗: {e}")
-                self.root.after(0, lambda: messagebox.showerror("錯誤", f"查詢失敗：{e}"))
+                self.root.after(0, lambda err=e: messagebox.showerror("錯誤", f"查詢失敗：{err}"))
             finally:
                 self.root.after(0, lambda: self._set_busy(False, "就緒"))
 
