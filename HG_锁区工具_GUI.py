@@ -43,6 +43,8 @@ APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
 REQUERY_DAYS = 7  # ipinfo.io 查詢快取天數
 IPINFO_TOKEN: str = ""
 
+VALID_MODES: list[str] = ["AS-EU Only", "EU Only", "AS Only", "HK Only", "無"]
+
 
 # ═══════════════════════════════════════════════
 # 工具函式（與 CLI 版共用）
@@ -493,17 +495,14 @@ class HGLockerGUI:
                 else:
                     self.root.after(0, self._pick_path_dialog)
 
-                # 5. 更新模式狀態
+                # 5. 更新模式狀態（只接受有效模式）
                 saved_mode = cfg.get("last_mode", "")
-                if saved_mode:
-                    self.root.after(0, lambda: self.lbl_mode.configure(
-                        text=f"目前模式: {saved_mode}"))
-                    self.root.after(0, lambda: self.lbl_busy.configure(
-                        text=f"上次使用: {saved_mode}"))
+                if saved_mode in VALID_MODES:
+                    self.root.after(0, lambda m=saved_mode: self.lbl_mode.configure(
+                        text=f"目前模式: {m}"))
 
                 # 6. 啟用按鈕
                 self.root.after(0, lambda: self._set_buttons_enabled(True))
-                self.root.after(0, lambda: self.lbl_busy.configure(text="就緒"))
                 self.root.after(0, lambda: self.lbl_status_light.configure(fg="#2d6a4f"))
 
                 log_info("初始化完成")

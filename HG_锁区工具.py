@@ -41,6 +41,8 @@ APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
 
 REQUERY_DAYS = 7  # ipinfo.io 查詢快取天數
 
+VALID_MODES: list[str] = ["AS-EU Only", "EU Only", "AS Only", "HK Only", "無"]
+
 # ── 全域狀態 ──
 LOG_FILE: str = ""
 CONFIG_FILE: str = ""
@@ -557,13 +559,19 @@ def main() -> None:
     while True:
         cfg = load_config()
         saved_mode = cfg.get("last_mode", "")
-        mode_hint = f"（目前設定：{saved_mode}）" if saved_mode else ""
+        if saved_mode not in VALID_MODES:
+            saved_mode = ""
 
         write_banner()
         show_ip_distribution()
 
+        # 顯示上次使用的模式
+        print(f"  上次使用：{saved_mode}" if saved_mode else "  上次使用：—")
+        print()
+
         print("操作：")
-        print(f"  [1] AS-EU Only   只留亞洲 + 歐洲，封鎖北美 + 大洋洲  {mode_hint}")
+        print(f"  [1] AS-EU Only   只留亞洲 + 歐洲，封鎖北美 + 大洋洲")
+        print("  [2] EU Only      封鎖歐洲以外所有 IP")
         print("  [2] EU Only      封鎖歐洲以外所有 IP")
         print("  [3] AS Only      封鎖亞洲以外所有 IP")
         print("  [4] HK Only      僅連接香港，封鎖其餘所有 IP")
