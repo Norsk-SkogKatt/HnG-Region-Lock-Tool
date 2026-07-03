@@ -113,8 +113,8 @@ HG-{IP}({國家})-{程式}-{方向}
 ### 下載原始碼
 
 ```bash
-git clone https://github.com/Norsk-SkogKatt/HG-Lock-Tool.git
-cd HG-Lock-Tool
+git clone https://github.com/Norsk-SkogKatt/HnG-Region-Lock-Tool.git
+cd HnG-Region-Lock-Tool
 ```
 
 ### 直接執行（不打包）
