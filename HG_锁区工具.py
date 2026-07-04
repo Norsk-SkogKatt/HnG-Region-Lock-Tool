@@ -35,13 +35,14 @@ SERVERS: list[dict[str, str]] = [
     {"ip": "51.77.67.200", "region": "EU", "country": "DE-Frankfurt"},
     {"ip": "51.83.236.30", "region": "EU", "country": "PL-Warsaw"},
     {"ip": "51.91.74.237", "region": "EU", "country": "FR-Dunkirk"},
+    {"ip": "64.42.180.154", "region": "NA", "country": "US-Atlanta"},
 ]
 
 APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
 
 REQUERY_DAYS = 7  # ipinfo.io 查詢快取天數
 
-VALID_MODES: list[str] = ["AS-EU Only", "EU Only", "AS Only", "HK Only", "無"]
+VALID_MODES: list[str] = ["AS-EU Only", "EU Only", "AS Only", "HK Only", "SG+EU Only", "無"]
 
 # ── 全域狀態 ──
 LOG_FILE: str = ""
@@ -573,11 +574,12 @@ def main() -> None:
         print("  [2] EU Only      封鎖歐洲以外所有 IP")
         print("  [3] AS Only      封鎖亞洲以外所有 IP")
         print("  [4] HK Only      僅連接香港，封鎖其餘所有 IP")
-        print("  [5] Clear        移除所有 HG 防火牆規則")
-        print("  [6] 重新查詢     重新透過 ipinfo.io 查詢 IP 位置")
-        print("  [7] 變更路徑     重新指定 HnG 資料夾")
+        print("  [5] SG+EU Only   僅留新加坡+歐洲，封鎖港澳美")
+        print("  [6] Clear        移除所有 HG 防火牆規則")
+        print("  [7] 重新查詢     重新透過 ipinfo.io 查詢 IP 位置")
+        print("  [8] 變更路徑     重新指定 HnG 資料夾")
         print("  [0] 離開")
-        choice = input("\n請選擇 (0-7): ").strip()
+        choice = input("\n請選擇 (0-8): ").strip()
 
         if choice == "1":
             invoke_block("僅連亞歐", lambda x: x.get("region") in ("NA", "OC"))
@@ -597,6 +599,10 @@ def main() -> None:
             invoke_block("僅連香港", lambda x: x["ip"] != hk_ip)
             save_config(hn_path, "HK Only")
         elif choice == "5":
+            invoke_block("僅連星歐", lambda x: x.get("region") in ("NA", "OC")
+                         or (x.get("region") == "AS" and "HK" in x.get("country", "").upper()))
+            save_config(hn_path, "SG+EU Only")
+        elif choice == "6":
             print("\n[+] 正在移除防火牆規則...")
             remove_all_rules()
             print()
@@ -604,12 +610,12 @@ def main() -> None:
             print("\n[✓] 完成")
             log_action("已執行 Clear，所有 HG 規則已清除")
             save_config(hn_path, "無")
-        elif choice == "6":
+        elif choice == "7":
             servers_info = update_server_info()
             _cache_query_result(servers_info)
             print("\n按 Enter 繼續...")
             input()
-        elif choice == "7":
+        elif choice == "8":
             print()
             hn_path = select_hn_root()
             app_paths = {

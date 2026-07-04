@@ -37,13 +37,14 @@ SERVERS: list[dict[str, str]] = [
     {"ip": "51.77.67.200", "region": "EU", "country": "DE-Frankfurt"},
     {"ip": "51.83.236.30", "region": "EU", "country": "PL-Warsaw"},
     {"ip": "51.91.74.237", "region": "EU", "country": "FR-Dunkirk"},
+    {"ip": "64.42.180.154", "region": "NA", "country": "US-Atlanta"},
 ]
 
 APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
 REQUERY_DAYS = 7  # ipinfo.io 查詢快取天數
 IPINFO_TOKEN: str = ""
 
-VALID_MODES: list[str] = ["AS-EU Only", "EU Only", "AS Only", "HK Only", "無"]
+VALID_MODES: list[str] = ["AS-EU Only", "EU Only", "AS Only", "HK Only", "SG+EU Only", "無"]
 
 
 # ═══════════════════════════════════════════════
@@ -258,6 +259,7 @@ class HGLockerGUI:
         2: "EU Only",
         3: "AS Only",
         4: "HK Only",
+        5: "SG+EU Only",
     }
 
     REGION_LABELS = {"EU": "歐洲", "AS": "亞洲", "NA": "北美", "OC": "大洋洲"}
@@ -334,8 +336,12 @@ class HGLockerGUI:
                                command=lambda: self._on_mode(4))
         self.btn_4.grid(row=1, column=1, padx=5, pady=4)
 
+        self.btn_5 = tk.Button(btn_frame, text="⑤ SG+EU Only\n只留星洲+歐洲", **btn_style,
+                               command=lambda: self._on_mode(5))
+        self.btn_5.grid(row=2, column=0, columnspan=2, padx=5, pady=4, sticky="ew")
+
         # ── 清除按鈕 ──
-        self.btn_clear = tk.Button(main, text="⑤ 清除所有規則 Clear", font=("Segoe UI", 11, "bold"),
+        self.btn_clear = tk.Button(main, text="⑥ 清除所有規則 Clear", font=("Segoe UI", 11, "bold"),
                                    command=self._on_clear,
                                    width=35, height=2)
         self.btn_clear.pack(pady=(0, 10))
@@ -389,14 +395,14 @@ class HGLockerGUI:
 
     def _set_buttons_enabled(self, enabled: bool) -> None:
         state = tk.NORMAL if enabled else tk.DISABLED
-        for btn in (self.btn_1, self.btn_2, self.btn_3, self.btn_4,
+        for btn in (self.btn_1, self.btn_2, self.btn_3, self.btn_4, self.btn_5,
                      self.btn_clear, self.btn_requery, self.btn_path):
             btn.configure(state=state)
 
     def _set_busy(self, busy: bool, msg: str = "") -> None:
         self.is_busy = busy
         state = tk.DISABLED if busy else tk.NORMAL
-        for btn in (self.btn_1, self.btn_2, self.btn_3, self.btn_4, self.btn_clear):
+        for btn in (self.btn_1, self.btn_2, self.btn_3, self.btn_4, self.btn_5, self.btn_clear):
             btn.configure(state=state)
         # 底部按鈕（重新查詢、路徑）保持可用
         self.btn_requery.configure(state=state)
@@ -558,6 +564,8 @@ class HGLockerGUI:
             2: ("僅連歐洲 (EU)", lambda x: x.get("region") != "EU", "EU Only"),
             3: ("僅連亞洲 (AS)", lambda x: x.get("region") != "AS", "AS Only"),
             4: ("僅連香港 (HK)", lambda x: x["ip"] != self._get_hk_ip(), "HK Only"),
+            5: ("僅連星歐 (SG+EU)", lambda x: x.get("region") in ("NA", "OC")
+                or (x.get("region") == "AS" and "HK" in x.get("country", "").upper()), "SG+EU Only"),
         }
         label, filter_fn, mode_save = mode_names[mode]
         self._run_blocking(label, filter_fn, mode_save)
