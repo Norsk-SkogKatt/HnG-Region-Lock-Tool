@@ -466,6 +466,10 @@ class HGLockerGUI:
 
         def task() -> None:
             try:
+                # 先移除所有現有規則
+                removed = remove_all_rules_silent()
+                if removed:
+                    log_info(f"封鎖前已清除 {removed} 條舊規則")
                 total_rules = 0
                 for item in selected:
                     total_rules += add_block_rules_silent(item["ip"], item["country"])

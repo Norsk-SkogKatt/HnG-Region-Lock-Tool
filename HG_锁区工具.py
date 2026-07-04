@@ -382,7 +382,12 @@ def block_servers() -> None:
 
     selected = [items[i] for i in sorted(selected_indices)]
     total_rules = len(selected) * len(APP_NAMES) * 2
-    print(f"\n[+] 將為 {len(selected)} 個 IP 建立 {total_rules} 條規則\n")
+    print(f"\n[+] 將為 {len(selected)} 個 IP 建立 {total_rules} 條規則")
+
+    # 先移除所有現有規則，再建立新的
+    print("    -> 正在清除現有規則...")
+    removed = remove_all_rules()
+    print(f"    已移除 {removed} 條現有規則\n")
 
     current = 0
     for item in selected:
