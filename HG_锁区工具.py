@@ -473,23 +473,28 @@ def _parse_region_input(raw: str, items: list[dict]) -> set[int]:
 
 
 def _group_rules_by_base(rules: list[str]) -> list[tuple[str, list[str]]]:
-    """将规则列表按基底名称分组（去掉 -IN/-OUT 后缀）。
-    返回 [(基底名称, [完整规则名1, 规则名2, ...]), ...] 保持排序。
+    """将规则按服务器（IP+国家）分组，合并 IN/OUT + hngsync/desktop。
+    返回 [(服务器键, [完整规则名1, ...]), ...] 保持排序。
     """
     groups: dict[str, list[str]] = {}
     for name in rules:
+        # 去掉 -IN/-OUT
         if name.endswith("-IN"):
-            base = name[:-3]
+            stem = name[:-3]
         elif name.endswith("-OUT"):
-            base = name[:-4]
+            stem = name[:-4]
         else:
-            base = name
-        groups.setdefault(base, []).append(name)
-    return [(base, groups[base]) for base in sorted(groups)]
+            stem = name
+        # 去掉 app 名称（最后一个 ) 后面的部分）
+        # stem = HG-IP(country)-app → key = HG-IP(country)
+        idx = stem.rfind(")")
+        key = stem[: idx + 1] if idx > 0 else stem
+        groups.setdefault(key, []).append(name)
+    return [(key, groups[key]) for key in sorted(groups)]
 
 
 def _extract_ip(base: str) -> str:
-    """从基底名称中提取 IP，如 HG-135.136.10.86(HK-HongKong)-hngsync → 135.136.10.86"""
+    """从基底名称中提取 IP，如 HG-135.136.10.86(HK-HongKong) → 135.136.10.86"""
     s = base.removeprefix("HG-")
     idx = s.find("(")
     return s[:idx] if idx > 0 else s
@@ -525,12 +530,11 @@ def unblock_servers() -> None:
         return
 
     groups = _group_rules_by_base(rules)
-    print(f"\n目前活跃的 HG 规则（{len(groups)} 组，每组含 IN+OUT）:")
+    print(f"\n目前活跃的 HG 规则（{len(groups)} 组，每组含 IN/OUT × 两个程序 = 4 条规则）:")
     for i, (base, _) in enumerate(groups, 1):
         ip = _extract_ip(base)
-        app = base.split("-")[-1] if "-" in base else base
         country_part = base[base.find("("):base.find(")")+1] if "(" in base else ""
-        print(f"  [{i:>2}] {ip} {country_part} - {app}")
+        print(f"  [{i:>2}] {ip} {country_part}")
 
     print(f"\n  输入编号解锁（逗号/空格分隔，支持范围 2~11），A=全部删除，Enter=返回")
     print(f"  也支持地区码：HK(香港) SG(新加坡) AS(全亚洲) EU(欧洲) NA(北美) OC/AU(大洋洲)")
@@ -565,12 +569,12 @@ def unblock_servers() -> None:
     for i in sorted(selected_indices):
         to_delete.extend(groups[i][1])
 
-    print(f"\n[+] 正在删除 {len(to_delete)} 条规则（{len(selected_indices)} 组）...")
+    print(f"\n[+] 正在删除 {len(to_delete)} 条规则（{len(selected_indices)} 个服务器）...")
     for i, name in enumerate(to_delete, 1):
         run_netsh(["delete", "rule", f'name={name}'])
         _show_progress(i, len(to_delete), f"删除: {name}")
-    print(f"\n[✓] 已删除 {len(to_delete)} 条规则（{len(selected_indices)} 组）")
-    log_action(f"解锁: 删除 {len(to_delete)} 条规则（{len(selected_indices)} 组）")
+    print(f"\n[✓] 已删除 {len(to_delete)} 条规则（{len(selected_indices)} 个服务器）")
+    log_action(f"解锁: 删除 {len(to_delete)} 条规则（{len(selected_indices)} 个服务器）")
     input("按 Enter 返回...")
 
 

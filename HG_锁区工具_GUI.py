@@ -494,17 +494,20 @@ class HGLockerGUI:
             messagebox.showinfo("解锁", "目前无任何活跃的 HG 规则")
             return
 
-        # 按基底名称分组（IN/OUT 合并）
+        # 按服务器分组（合并 IN/OUT + hngsync/desktop）
         groups: dict[str, list[str]] = {}
         for name in rules:
             if name.endswith("-IN"):
-                base = name[:-3]
+                stem = name[:-3]
             elif name.endswith("-OUT"):
-                base = name[:-4]
+                stem = name[:-4]
             else:
-                base = name
-            groups.setdefault(base, []).append(name)
-        sorted_bases = sorted(groups)
+                stem = name
+            # 去掉 app 名称：取最后一个 ) 之前的部分
+            idx = stem.rfind(")")
+            key = stem[: idx + 1] if idx > 0 else stem
+            groups.setdefault(key, []).append(name)
+        sorted_keys = sorted(groups)
 
         # 弹出解锁对话框
         top = tk.Toplevel(self.root)
@@ -513,48 +516,46 @@ class HGLockerGUI:
         top.grab_set()
         top.resizable(False, False)
 
-        tk.Label(top, text="选择要删除的规则（每组含 IN+OUT）：",
+        tk.Label(top, text="选择要删除的规则（每组含 IN/OUT × 两个程序 = 4 条）：",
                  font=("Segoe UI", 10)).pack(padx=12, pady=(10, 4))
 
         frame = ttk.Frame(top)
         frame.pack(padx=12, pady=4, fill=tk.BOTH, expand=True)
 
         base_vars: list[tuple[str, tk.BooleanVar]] = []
-        for base in sorted_bases:
+        for key in sorted_keys:
             var = tk.BooleanVar(value=False)
-            # 美化显示：提取 IP + 国家 + 应用
-            display = base.removeprefix("HG-")
+            # 美化显示：提取 IP + 国家
+            display = key.removeprefix("HG-")
             ip = display[:display.find("(")] if "(" in display else display
             country = display[display.find("("):display.find(")")+1] if "(" in display else ""
-            app = display.split("-")[-1] if "-" in display else display
-            cb = ttk.Checkbutton(frame, text=f"{ip} {country} - {app}", variable=var)
+            cb = ttk.Checkbutton(frame, text=f"{ip} {country}", variable=var)
             cb.pack(anchor="w")
-            base_vars.append((base, var))
+            base_vars.append((key, var))
 
         btn_frame = ttk.Frame(top)
         btn_frame.pack(pady=8)
 
         def do_delete() -> None:
-            selected_bases = [b for b, v in base_vars if v.get()]
-            if not selected_bases:
+            selected_keys = [k for k, v in base_vars if v.get()]
+            if not selected_keys:
                 messagebox.showinfo("解锁", "未选择任何规则", parent=top)
                 return
 
-            # 收集所有 IN+OUT 规则
             all_rules = []
-            for b in selected_bases:
-                all_rules.extend(groups[b])
-            if not messagebox.askyesno("确认", f"确定删除 {len(selected_bases)} 组（{len(all_rules)} 条）规则？",
+            for k in selected_keys:
+                all_rules.extend(groups[k])
+            if not messagebox.askyesno("确认", f"确定删除 {len(selected_keys)} 个服务器（{len(all_rules)} 条规则）？",
                                        parent=top):
                 return
 
             def task() -> None:
                 for name in all_rules:
                     run_netsh(["delete", "rule", f'name={name}'])
-                log_action(f"解锁: 删除 {len(all_rules)} 条规则（{len(selected_bases)} 组）")
+                log_action(f"解锁: 删除 {len(all_rules)} 条规则（{len(selected_keys)} 个服务器）")
                 self.root.after(0, top.destroy)
                 self.root.after(0, lambda: messagebox.showinfo(
-                    "完成", f"已删除 {len(all_rules)} 条规则（{len(selected_bases)} 组）"))
+                    "完成", f"已删除 {len(all_rules)} 条规则（{len(selected_keys)} 个服务器）"))
 
             threading.Thread(target=task, daemon=True).start()
 
