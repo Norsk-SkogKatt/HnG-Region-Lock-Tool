@@ -1,10 +1,17 @@
-# HG 服务器锁区工具 🎯
+# HG 服务器锁区工具 🎯 / HG Server Region Lock Tool 🎯
 
 > Heroes & Generals 服务器锁区工具 — 通过 Windows 防火墙封锁指定地区 IP，自由组合，无需联网查询。
+>
+> Heroes & Generals region lock tool — block specific server IPs via Windows Firewall, free combination, no online query needed.
 
 ---
 
-## ✨ 功能
+## 📖 中文说明
+
+<details>
+<summary>点击展开中文说明</summary>
+
+### ✨ 功能
 
 | 功能 | 说明 |
 |---|---|
@@ -16,164 +23,267 @@
 | **自动清除旧规则** | 封锁前自动清除旧规则，避免规则冲突 |
 | **路径记忆** | 自动记忆游戏路径，下次启动直接使用 |
 | **打开防火墙** | (GUI 版) 一键打开「高级安全 Windows Defender 防火墙」 |
+| **中英文切换** | 界面支持中文/英文切换，保存后下次启动自动使用 |
 
----
-
-## 🖥️ GUI 版（推荐）
+### 🖥️ GUI 版（推荐）
 
 一键操作，无需指令。勾选服务器 → 点击封锁：
 
-```
-☑  亚洲（AS）:
+`
+亚洲（AS）:
   [SG] ☑ 139.99.120.230  (SG-Singapore)
   [HK] ☐ 135.136.10.86   (HK-HongKong)
-☐  欧洲（EU）:
+欧洲（EU）:
       ☐ 147.135.214.90   (FR-Dunkirk)
       ☐ 147.135.252.98   (FR-Dunkirk)
       ...（共 8 个）
-☑  北美（NA）:
+北美（NA）:
       ☑ 144.217.77.9     (CA-Quebec)
       ☑ 162.213.248.83   (US-Phoenix)
       ☑ 64.42.180.154    (US-Atlanta)
-☐  大洋洲（OC）:
+大洋洲（OC）:
       ☐ 139.99.149.14    (AU-Sydney)
 
 [封锁选中]  [解锁]  [清空所有]
-```
+`
 
-### 使用方法
+#### 使用方法
 
 1. **以管理员身份运行**（操作防火墙需要）
-2. 首次启动会弹出文件夹选择窗口，请选择 HnG 游戏安装目录（含 `hngsync.exe` 和 `HeroesAndGeneralsDesktop.exe`）
+2. 首次启动会弹出文件夹选择窗口，请选择 HnG 游戏安装目录（含 hngsync.exe 和 HeroesAndGeneralsDesktop.exe）
 3. 勾选要封锁的服务器 IP，点击「封锁选中」
 4. 点击「解锁」可查看并删除指定的规则
 
----
-
-## ⌨️ CLI 版（TUI）
+### ⌨️ CLI 版（TUI）
 
 命令行界面，支持地区码输入，适合批量操作。
 
-```bash
+`ash
 python HG_锁区工具.py
-```
+`
 
 启动后进入交互菜单：
 
-```
+`
   [1] 封锁服务器     编号或地区码（如 HK,NA,OC）
   [2] 解锁服务器     从封锁列表中移除规则
   [3] 清空所有规则   移除所有 HG 规则
   [4] 变更路径       重新指定 HnG 文件夹
+  [5] 语言/Language  中英文切换
   [0] 离开
-```
+`
 
-### 封锁示例
+#### 封锁示例
 
-```
-地区码: HK(香港) SG(新加坡) AS(全亚洲) EU(欧洲) NA(北美) OC(大洋洲/AU)
-
+`
 >> HK,NA,OC       ← 封锁香港 + 所有北美 + 所有大洋洲
 >> 2,EU           ← 封锁 2 号服务器 + 所有欧洲
->> 1,3,5          ← 封锁第 1、3、5 号服务器
+>> 1~5            ← 封锁 1 到 5 号服务器
 >> A              ← 全选
-```
+`
+
+</details>
 
 ---
 
-## 📋 服务器列表（14 台）
+## 📖 English Documentation
 
-| 区域 | 数量 | 位置 |
+<details>
+<summary>Click to expand English documentation</summary>
+
+### ✨ Features
+
+| Feature | Description |
+|---|---|
+| **Free Combination Block** | Select IPs by checkbox or number input, supports region codes (HK/SG/AS/EU/NA/OC) |
+| **Targeted Unblock** | View current rules, select which to delete |
+| **One-click Clear** | Delete all HG firewall rules, restore original state |
+| **Bidirectional Block** | Inbound (IN) + Outbound (OUT) all-protocol block |
+| **Hardcoded Regions** | IP geolocation pre-configured, no online query needed |
+| **Auto-clear Old Rules** | Automatically clears old rules before blocking to avoid conflicts |
+| **Path Memory** | Remembers game installation path for next launch |
+| **Open Firewall** | (GUI version) One-click open "Windows Defender Firewall with Advanced Security" |
+| **Language Switch** | Interface supports Chinese/English toggle, persists between sessions |
+
+### 🖥️ GUI Version (Recommended)
+
+One-click operation, no commands needed. Check servers → Click block:
+
+`
+Asia (AS):
+  [SG] ☑ 139.99.120.230  (SG-Singapore)
+  [HK] ☐ 135.136.10.86   (HK-HongKong)
+Europe (EU):
+      ☐ 147.135.214.90   (FR-Dunkirk)
+      ☐ 147.135.252.98   (FR-Dunkirk)
+      ...(8 total)
+North America (NA):
+      ☑ 144.217.77.9     (CA-Quebec)
+      ☑ 162.213.248.83   (US-Phoenix)
+      ☑ 64.42.180.154    (US-Atlanta)
+Oceania (OC):
+      ☐ 139.99.149.14    (AU-Sydney)
+
+[Block Selected]  [Unblock]  [Clear All]
+`
+
+#### Usage
+
+1. **Run as Administrator** (required for firewall operations)
+2. On first launch, browse to your HnG game installation directory (containing hngsync.exe and HeroesAndGeneralsDesktop.exe)
+3. Check the server IPs to block, click "Block Selected"
+4. Click "Unblock" to view and delete specific rules
+
+### ⌨️ CLI Version (TUI)
+
+Command-line interface supporting region code input, suitable for batch operations.
+
+`ash
+python HG_锁区工具.py
+`
+
+Interactive menu:
+
+`
+  [1] Block Server      Number or region code (e.g. HK,NA,OC)
+  [2] Unblock Server    Remove rules from block list
+  [3] Clear All Rules   Remove all HG rules
+  [4] Change Path       Specify HnG folder again
+  [5] 语言/Language     Toggle Chinese/English
+  [0] Exit
+`
+
+#### Block Examples
+
+`
+>> HK,NA,OC       ← Block Hong Kong + all North America + all Oceania
+>> 2,EU           ← Block server #2 + all Europe
+>> 1~5            ← Block servers 1 through 5
+>> A              ← Select all
+`
+
+</details>
+
+---
+
+## 📋 Server List / 服务器列表
+
+<details>
+<summary>Click to show / 点击查看</summary>
+
+**14 servers total:**
+
+| Region | Count | Locations |
 |---|---|---|
-| 🌏 亚洲 (AS) | 2 | 新加坡、香港 |
-| 🌍 欧洲 (EU) | 8 | 法国 Dunkirk(5)、德国 Frankfurt(1)、波兰 Warsaw(1) |
-| 🌎 北美 (NA) | 3 | 加拿大 Quebec、美国 Phoenix、美国 Atlanta |
-| 🌏 大洋洲 (OC) | 1 | 澳大利亚 Sydney |
+| 🌏 Asia (AS) | 2 | Singapore, Hong Kong |
+| 🌍 Europe (EU) | 8 | France Dunkirk (5), Germany Frankfurt (1), Poland Warsaw (1) |
+| 🌎 North America (NA) | 3 | Canada Quebec, US Phoenix, US Atlanta |
+| 🌏 Oceania (OC) | 1 | Australia Sydney |
 
-> IP 地理位置已硬编码在程序中，无需联网查询，启动即用。
+> IP geolocation is hardcoded in the program. No online query needed.
 
----
-
-## 🔧 技术细节
-
-- **语言**：Python 3.12+
-- **依赖**：无第三方包（仅使用标准库）
-- **防火墙**：`netsh advfirewall` 双向 (IN+OUT) 全协议封锁
-- **GUI 框架**：tkinter（内置）
-- **IP 数据**：硬编码在源码中，无需 ipinfo.io 或任何外部 API
-- **原版分析**：`Legency 锁区/` 目录包含原版 v2.1 的反编译分析文件
-
-### 防火墙规则命名
-
-```
-HG-{IP}({国家})-{程序}-{方向}
-```
-
-示例：`HG-139.99.120.230(SG-Singapore)-hngsync-IN`
+</details>
 
 ---
 
-## 📦 从源码构建
+## 🔧 Technical Details / 技术细节
 
-### 前置条件
+<details>
+<summary>Click to show / 点击查看</summary>
+
+- **Language**: Python 3.12+
+- **Dependencies**: None (stdlib only)
+- **Firewall**: 
+etsh advfirewall bidirectional (IN+OUT) all-protocol block
+- **GUI Framework**: tkinter (built-in)
+- **IP Data**: Hardcoded in source, no external API needed
+- **Original Analysis**: Legency 锁区/ contains decompiled analysis of the original v2.1
+
+### Firewall Rule Naming / 防火墙规则命名
+
+`
+HG-{IP}({Country})-{Program}-{Direction}
+`
+
+Example: HG-139.99.120.230(SG-Singapore)-hngsync-IN
+
+### Rule Calculation / 规则计算
+
+Each IP × 2 programs (hngsync, HeroesAndGeneralsDesktop) × 2 directions (IN, OUT) = **4 rules per IP**
+
+</details>
+
+---
+
+## 📦 Build from Source / 从源码构建
+
+<details>
+<summary>Click to show / 点击查看</summary>
+
+### Prerequisites / 前置条件
 
 - Python 3.12+
 - pip
 
-### 下载源码
+### Download / 下载
 
-```bash
+`ash
 git clone https://github.com/Norsk-SkogKatt/HnG-Region-Lock-Tool.git
 cd HnG-Region-Lock-Tool
-```
+`
 
-### 直接运行（不打包）
+### Run Directly / 直接运行
 
-```bash
-# CLI 版
+`ash
+# CLI version
 python HG_锁区工具.py
 
-# GUI 版
+# GUI version
 python HG_锁区工具_GUI.py
-```
+`
 
-> ⚡ 本项目**无第三方依赖**，仅使用 Python 标准库，下载后即可直接运行。
+> ⚡ No third-party dependencies required. Just download and run.
 
-### 打包成单文件 EXE
+### Package as EXE / 打包成 EXE
 
-使用 PyInstaller 打包为独立 exe，无需 Python 环境即可运行：
-
-```bash
-# 安装 PyInstaller
+`ash
 pip install pyinstaller
 
-# 打包 CLI 版（需要控制台窗口）
+# CLI version (needs console window)
 pyinstaller --onefile --clean --console HG_锁区工具.py --name "HG服务器锁定v5.0"
 
-# 打包 GUI 版（无控制台）
+# GUI version (no console)
 pyinstaller --onefile --clean --noconsole HG_锁区工具_GUI.py --name "HG服务器锁定v5.0_GUI"
-```
+`
 
-### 参数说明
-
-| 参数 | 说明 |
+| Parameter / 参数 | Description / 说明 |
 |---|---|
-| `--onefile` | 打包成单个 exe 文件 |
-| `--clean` | 清除缓存，确保干净构建 |
-| `--console` | 显示控制台窗口（CLI 版必须） |
-| `--noconsole` | 不显示控制台窗口（GUI 版使用） |
-| `--name` | 指定输出文件名 |
+| --onefile | Single exe output |
+| --clean | Clean cache before build |
+| --console | Show console window (CLI only) |
+| --noconsole | Hide console window (GUI only) |
+| --name | Output filename |
+
+</details>
 
 ---
 
-## ⚠️ 注意事项
+## ⚠️ Notes / 注意事项
 
-- **需要管理员权限**才能操作 Windows 防火墙
+<details>
+<summary>Click to show / 点击查看</summary>
+
+- **Admin rights required** to operate Windows Firewall
+- Old rules are automatically cleared before creating new ones to prevent conflicts
+- IP geolocation is pre-determined and hardcoded; submit an Issue if servers change
+- **管理员权限**是操作 Windows 防火墙的必要条件
 - 封锁前会自动清除旧规则，防止规则冲突
 - IP 地理位置由维护者预先查好并硬编码，如有变动请提交 Issue
 
+</details>
+
 ---
 
-## 📜 许可
+## 📜 License / 许可
 
 MIT License

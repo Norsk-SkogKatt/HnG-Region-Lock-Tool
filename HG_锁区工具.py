@@ -13,6 +13,172 @@ import sys
 from datetime import datetime
 
 
+# ── 多语言支援 ──
+LANG: dict[str, dict[str, str]] = {
+    "zh": {
+        "app_title": "HG 服务器锁区工具 v5.0",
+        "console_title": "HG 服务器锁区工具 v5.0",
+        "banner_top": "╔═══════════════════════════════════════════════╗",
+        "banner_line1": "║       HG 服务器锁区工具 v5.0                  ║",
+        "banner_line2": "║       双向（传入 + 传出）封锁                 ║",
+        "banner_line3": "║       自由组合 — 编号 + 地区码混合输入        ║",
+        "banner_bottom": "╚═══════════════════════════════════════════════╝",
+        "banner_targets": "目标程式：hngsync.exe、HeroesAndGeneralsDesktop.exe",
+        "banner_mode": "封锁模式：传入 / 传出双向封锁，全协议，全埠",
+        "banner_rule_note": "规则计算说明：",
+        "banner_rule_detail": "  每个 IP × 2 个程式 × 2 方向 = 每 IP 4 条规则",
+        "ip_dist_title": "IP 分布（硬编码地区）：",
+        "ip_dist_line": "  {label}（{code}）  {desc}",
+        "region_eu": "欧洲",
+        "region_as": "亚洲",
+        "region_na": "北美",
+        "region_oc": "大洋洲",
+        "and_more": "...等 {count} 个",
+        "rules_title": "\n目前 HG 防火墙规则（{count} 条）:",
+        "no_rules": "\n目前无任何 HG 防火墙规则",
+        "found_old_rules": "\n[+] 发现 {count} 条旧规则，正在清除...",
+        "deleted_rule": "    已删除: {name}",
+        "no_hg_rules": "    无 HG 相关规则",
+        "removed_rules": "\n    已移除 {count} 条规则",
+        "deleting_progress": "删除: {name}",
+        "auto_path": "[*] 自动使用上次路径：{path}",
+        "ask_path": "\n[?] 请指定 HnG 游戏安装路径",
+        "input_path": "路径: ",
+        "path_empty": "[!] 路径不得留空",
+        "files_missing": "[!] 找不到以下档案：",
+        "file_missing_item": "    - {name}.exe",
+        "confirm_retry": "    请确认路径后再试。\n",
+        "retry_or_quit": "按 Enter 重试，或输入 Q 离开: ",
+        "files_confirmed": "\n[✓] 已确认以下程式：",
+        "file_confirmed_item": "    {name}.exe",
+        "hline": "\n" + "─" * 60,
+        "block_title": "  选择要封锁的服务器：",
+        "block_hline": "─" * 60,
+        "region_header": "\n  {label}（{code}）:",
+        "block_select_prompt": "\n  输入编号、范围或地区码（逗号/空格分隔），A=全选，Enter=返回",
+        "block_example": "  范例:  2~11  或  HK,4~9  或  1,NA,OC  或  A",
+        "block_region_codes": "  地区码: HK(香港) SG(新加坡) AS(全亚洲) EU(欧洲) NA(北美) OC(大洋洲/AU)",
+        "block_input_prompt": "  >> ",
+        "block_no_selection": "[!] 未选择有效项目",
+        "will_create_rules": "\n[+] 将为 {count} 个 IP 建立 {total} 条规则",
+        "clearing_rules": "    -> 正在清除现有规则...",
+        "removed_existing": "    已移除 {count} 条现有规则\n",
+        "block_done": "\n[✓] {count} 个 IP 已双向封锁（传入 + 传出）",
+        "press_enter_return": "按 Enter 返回...",
+        "no_hg_rules_unblock": "\n目前无任何 HG 规则",
+        "unblock_title": "\n目前活跃的 HG 规则（{groups} 组，每组含 IN/OUT × 两个程序 = 4 条规则）:",
+        "unblock_select_prompt": "\n  输入编号解锁（逗号/空格分隔，支持范围 2~11），A=全部删除，Enter=返回",
+        "unblock_region_codes": "  也支持地区码：HK(香港) SG(新加坡) AS(全亚洲) EU(欧洲) NA(北美) OC/AU(大洋洲)",
+        "unblock_input_prompt": "  >> ",
+        "unblock_no_selection": "\n[!] 未选择有效项目",
+        "unblock_deleting": "\n[+] 正在删除 {total} 条规则（{servers} 个服务器）...",
+        "unblock_done": "\n[✓] 已删除 {total} 条规则（{servers} 个服务器）",
+        "need_admin": "[!] 需要管理员权限，正在请求...",
+        "menu_header": "操作：",
+        "menu_block": "  [1] 封锁服务器     编号或地区码（如 HK,NA,OC）",
+        "menu_unblock": "  [2] 解锁服务器     从封锁列表中移除规则",
+        "menu_clear": "  [3] 清空所有规则   移除所有 HG 规则",
+        "menu_change_path": "  [4] 变更路径       重新指定 HnG 资料夹",
+        "menu_lang": "  [5] 语言/Language",
+        "menu_exit": "  [0] 离开",
+        "menu_choice": "\n请选择 (0-5): ",
+        "clearing_all_rules": "\n[+] 正在移除所有防火墙规则...",
+        "cleared_all_rules": "\n[✓] 已移除 {count} 条规则",
+        "path_updated": "\n[✓] 路径已更新",
+        "goodbye": "\n[-] 再见",
+        "invalid_option": "\n[!] 无效选项",
+        "press_enter_continue": "按 Enter 继续...",
+        "error_unexpected": "\n[!] 发生未预期的错误，请截图或记录上方红色文字。",
+        "error_check_log": "    你也可以检查 HG_lock.log 中的错误日志。",
+        "press_any_key": "\n按任意键离开...",
+        "lang_switched": "\n[✓] 语言已切换为 English",
+    },
+    "en": {
+        "app_title": "HG Server Region Lock Tool v5.0",
+        "console_title": "HG Server Region Lock Tool v5.0",
+        "banner_top": "╔═══════════════════════════════════════════════╗",
+        "banner_line1": "║       HG Server Region Lock Tool v5.0         ║",
+        "banner_line2": "║       Bidirectional (In + Out) Lock           ║",
+        "banner_line3": "║       Free Combo — Number + Region Code Input ║",
+        "banner_bottom": "╚═══════════════════════════════════════════════╝",
+        "banner_targets": "Targets: hngsync.exe, HeroesAndGeneralsDesktop.exe",
+        "banner_mode": "Block Mode: Bidirectional In/Out, All Protocols, All Ports",
+        "banner_rule_note": "Rule Calculation:",
+        "banner_rule_detail": "  Each IP × 2 programs × 2 directions = 4 rules per IP",
+        "ip_dist_title": "IP Distribution (hardcoded regions):",
+        "ip_dist_line": "  {label} ({code})  {desc}",
+        "region_eu": "Europe",
+        "region_as": "Asia",
+        "region_na": "North America",
+        "region_oc": "Oceania",
+        "and_more": "...and {count} more",
+        "rules_title": "\nCurrent HG firewall rules ({count}):",
+        "no_rules": "\nNo HG firewall rules currently",
+        "found_old_rules": "\n[+] Found {count} old rules, cleaning up...",
+        "deleted_rule": "    Deleted: {name}",
+        "no_hg_rules": "    No HG-related rules",
+        "removed_rules": "\n    Removed {count} rules",
+        "deleting_progress": "Deleting: {name}",
+        "auto_path": "[*] Auto-using last path: {path}",
+        "ask_path": "\n[?] Please specify HnG game installation path",
+        "input_path": "Path: ",
+        "path_empty": "[!] Path cannot be empty",
+        "files_missing": "[!] Cannot find the following files:",
+        "file_missing_item": "    - {name}.exe",
+        "confirm_retry": "    Please verify the path and try again.\n",
+        "retry_or_quit": "Press Enter to retry, or input Q to quit: ",
+        "files_confirmed": "\n[✓] Confirmed the following programs:",
+        "file_confirmed_item": "    {name}.exe",
+        "hline": "\n" + "─" * 60,
+        "block_title": "  Select servers to block:",
+        "block_hline": "─" * 60,
+        "region_header": "\n  {label} ({code}):",
+        "block_select_prompt": "\n  Input number, range, or region code (comma/space separated), A=Select All, Enter=Back",
+        "block_example": "  Examples: 2~11  or  HK,4~9  or  1,NA,OC  or  A",
+        "block_region_codes": "  Codes: HK(Hong Kong) SG(Singapore) AS(All Asia) EU(Europe) NA(North America) OC(Oceania/AU)",
+        "block_input_prompt": "  >> ",
+        "block_no_selection": "[!] No valid items selected",
+        "will_create_rules": "\n[+] Will create {total} rules for {count} IPs",
+        "clearing_rules": "    -> Clearing existing rules...",
+        "removed_existing": "    Removed {count} existing rules\n",
+        "block_done": "\n[✓] {count} IPs blocked bidirectionally (In + Out)",
+        "press_enter_return": "Press Enter to return...",
+        "no_hg_rules_unblock": "\nNo HG rules currently",
+        "unblock_title": "\nCurrently active HG rules ({groups} groups, each with IN/OUT × 2 programs = 4 rules):",
+        "unblock_select_prompt": "\n  Input number to unblock (comma/space separated, supports range 2~11), A=Delete All, Enter=Back",
+        "unblock_region_codes": "  Also supports region codes: HK(Hong Kong) SG(Singapore) AS(All Asia) EU(Europe) NA(North America) OC/AU(Oceania)",
+        "unblock_input_prompt": "  >> ",
+        "unblock_no_selection": "\n[!] No valid items selected",
+        "unblock_deleting": "\n[+] Deleting {total} rules ({servers} servers)...",
+        "unblock_done": "\n[✓] Deleted {total} rules ({servers} servers)",
+        "need_admin": "[!] Admin privileges required, requesting...",
+        "menu_header": "Operations:",
+        "menu_block": "  [1] Block Server     Number or region code (e.g. HK,NA,OC)",
+        "menu_unblock": "  [2] Unblock Server   Remove rules from block list",
+        "menu_clear": "  [3] Clear All Rules  Remove all HG rules",
+        "menu_change_path": "  [4] Change Path      Specify HnG folder again",
+        "menu_lang": "  [5] 语言/Language",
+        "menu_exit": "  [0] Exit",
+        "menu_choice": "\nPlease choose (0-5): ",
+        "clearing_all_rules": "\n[+] Removing all firewall rules...",
+        "cleared_all_rules": "\n[✓] Removed {count} rules",
+        "path_updated": "\n[✓] Path updated",
+        "goodbye": "\n[-] Goodbye",
+        "invalid_option": "\n[!] Invalid option",
+        "press_enter_continue": "Press Enter to continue...",
+        "error_unexpected": "\n[!] An unexpected error occurred. Please screenshot or note the red text above.",
+        "error_check_log": "    You can also check HG_lock.log for error logs.",
+        "press_any_key": "\nPress any key to exit...",
+        "lang_switched": "\n[✓] Language switched to 中文",
+    },
+}
+current_lang: str = "zh"
+
+
+def _(key: str) -> str:
+    return LANG.get(current_lang, {}).get(key, LANG["zh"].get(key, key))
+
+
 # ── 服务器 IP 清单（硬编码地区 — 由维护者预先查好） ──
 SERVERS: list[dict[str, str]] = [
     {"ip": "139.99.120.230", "region": "AS", "country": "SG-Singapore", "short": "SG"},
@@ -110,6 +276,7 @@ def save_config(hn_path: str = "", last_mode: str = "") -> None:
         cfg["hn_path"] = hn_path
     if last_mode:
         cfg["last_mode"] = last_mode
+    cfg["lang"] = current_lang
     cfg["last_updated"] = datetime.now().isoformat()
     try:
         with open(_config_path(), "w", encoding="utf-8") as f:
@@ -192,10 +359,10 @@ def remove_old_rules() -> None:
     rules = get_rule_lines("HG-")
     if not rules:
         return
-    print(f"\n[+] 发现 {len(rules)} 条旧规则，正在清除...")
+    print(_("found_old_rules").format(count=len(rules)))
     for name in rules:
         run_netsh(["delete", "rule", f'name={name}'])
-        print(f"    已删除: {name}")
+        print(_("deleted_rule").format(name=name))
     log_action(f"已清除 {len(rules)} 条旧规则")
 
 
@@ -258,12 +425,12 @@ def remove_all_rules() -> int:
     rules = get_rule_lines("HG-")
     count = len(rules)
     if not rules:
-        print("    无 HG 相关规则")
+        print(_("no_hg_rules"))
         return 0
     for i, name in enumerate(rules, 1):
         run_netsh(["delete", "rule", f'name={name}'])
-        _show_progress(i, count, f"删除: {name}")
-    print(f"\n    已移除 {count} 条规则")
+        _show_progress(i, count, _("deleting_progress").format(name=name))
+    print(_("removed_rules").format(count=count))
     log_action(f"已移除所有规则 ({count} 条)")
     return count
 
@@ -272,11 +439,11 @@ def show_current_rules() -> None:
     """显示目前的 HG 防火墙规则"""
     rules = get_rule_lines("HG-")
     if rules:
-        print(f"\n目前 HG 防火墙规则 ({len(rules)} 条):")
+        print(_("rules_title").format(count=len(rules)))
         for name in sorted(rules):
             print(f"  - {name}")
     else:
-        print("\n目前无任何 HG 防火墙规则")
+        print(_("no_rules"))
 
 
 # ═══════════════════════════════════════════════
@@ -292,17 +459,17 @@ def select_hn_root() -> str:
         os.path.isfile(os.path.join(saved, f"{app}.exe"))
         for app in APP_NAMES
     ):
-        print(f"[*] 自动使用上次路径：{saved}")
+        print(_("auto_path").format(path=saved))
         log_info(f"使用上次路径: {saved}")
         return saved
 
-    print("\n[?] 请指定 HnG 游戏安装路径")
+    print(_("ask_path"))
     path = ""
     while not path:
-        raw = input("路径: ").strip().strip("\"'").replace("/", "\\").rstrip("\\")
+        raw = input(_("input_path")).strip().strip("\"'").replace("/", "\\").rstrip("\\")
         path = raw
         if not path:
-            print("[!] 路径不得留空")
+            print(_("path_empty"))
             continue
 
         missing = []
@@ -312,18 +479,18 @@ def select_hn_root() -> str:
                 missing.append(app)
 
         if missing:
-            print("[!] 找不到以下档案：")
+            print(_("files_missing"))
             for m in missing:
-                print(f"    - {m}.exe")
-            print("    请确认路径后再试。\n")
-            retry = input("按 Enter 重试，或输入 Q 离开: ").strip().upper()
+                print(_("file_missing_item").format(name=m))
+            print(_("confirm_retry"))
+            retry = input(_("retry_or_quit")).strip().upper()
             if retry == "Q":
                 sys.exit(0)
             path = ""
         else:
-            print("\n[✓] 已确认以下程式：")
+            print(_("files_confirmed"))
             for app in APP_NAMES:
-                print(f"    {app}.exe")
+                print(_("file_confirmed_item").format(name=app))
             log_info(f"游戏路径: {path}")
             save_config(hn_path=path, last_mode=cfg.get("last_mode", ""))
             return path
@@ -345,7 +512,12 @@ REGION_CODES: dict[str, str] = {
 def block_servers() -> None:
     """自由选择要封锁的服务器（支援编号 + 地区码组合）"""
     region_order = ["AS", "EU", "NA", "OC"]
-    region_labels = {"AS": "亚洲", "EU": "欧洲", "NA": "北美", "OC": "大洋洲"}
+    region_labels = {
+        "AS": _("region_as"),
+        "EU": _("region_eu"),
+        "NA": _("region_na"),
+        "OC": _("region_oc"),
+    }
 
     # 按显示顺序建立 items（地区分组），编号才对得上
     items: list[dict] = []
@@ -354,9 +526,9 @@ def block_servers() -> None:
             if svr.get("region") == rc:
                 items.append(svr)
 
-    print("\n" + "─" * 60)
-    print("  选择要封锁的服务器：")
-    print("─" * 60)
+    print(_("hline"))
+    print(_("block_title"))
+    print(_("block_hline"))
 
     idx = 1
     for rc in region_order:
@@ -364,7 +536,7 @@ def block_servers() -> None:
         if not r_servers:
             continue
         label = region_labels.get(rc, rc)
-        print(f"\n  {label}（{rc}）:")
+        print(_("region_header").format(label=label, code=rc))
         for svr in r_servers:
             ip = svr["ip"]
             country = svr.get("country", "?")
@@ -373,27 +545,27 @@ def block_servers() -> None:
             print(f"  {tag}{idx:>2}: {ip}  ({country})")
             idx += 1
 
-    print(f"\n  输入编号、范围或地区码（逗号/空格分隔），A=全选，Enter=返回")
-    print(f"  范例:  2~11  或  HK,4~9  或  1,NA,OC  或  A")
-    print(f"  地区码: HK(香港) SG(新加坡) AS(全亚洲) EU(欧洲) NA(北美) OC(大洋洲/AU)")
-    raw = input("  >> ").strip()
+    print(_("block_select_prompt"))
+    print(_("block_example"))
+    print(_("block_region_codes"))
+    raw = input(_("block_input_prompt")).strip()
     if not raw:
         return
 
     selected_indices: set[int] = _parse_region_input(raw, items)
     if not selected_indices:
-        print("[!] 未选择有效项目")
-        input("按 Enter 返回...")
+        print(_("block_no_selection"))
+        input(_("press_enter_return"))
         return
 
     selected = [items[i] for i in sorted(selected_indices)]
     total_rules = len(selected) * len(APP_NAMES) * 2
-    print(f"\n[+] 将为 {len(selected)} 个 IP 建立 {total_rules} 条规则")
+    print(_("will_create_rules").format(count=len(selected), total=total_rules))
 
     # 先移除所有现有规则，再建立新的
-    print("    -> 正在清除现有规则...")
+    print(_("clearing_rules"))
     removed = remove_all_rules()
-    print(f"    已移除 {removed} 条现有规则\n")
+    print(_("removed_existing").format(count=removed))
 
     current = 0
     for item in selected:
@@ -401,10 +573,10 @@ def block_servers() -> None:
 
     print()
     show_current_rules()
-    print(f"\n[✓] {len(selected)} 个 IP 已双向封锁（传入 + 传出）")
+    print(_("block_done").format(count=len(selected)))
     ips = ", ".join(s["ip"] for s in selected)
     log_action(f"封锁 {len(selected)} 个 IP: {ips}")
-    input("按 Enter 返回...")
+    input(_("press_enter_return"))
 
 
 def _parse_range_token(token: str, item_count: int) -> set[int]:
@@ -525,20 +697,20 @@ def unblock_servers() -> None:
     """自由选择要解锁的防火墙规则（IN/OUT 合并为一组）"""
     rules = get_rule_lines("HG-")
     if not rules:
-        print("\n目前无任何 HG 规则")
-        input("按 Enter 返回...")
+        print(_("no_hg_rules_unblock"))
+        input(_("press_enter_return"))
         return
 
     groups = _group_rules_by_base(rules)
-    print(f"\n目前活跃的 HG 规则（{len(groups)} 组，每组含 IN/OUT × 两个程序 = 4 条规则）:")
+    print(_("unblock_title").format(groups=len(groups)))
     for i, (base, _) in enumerate(groups, 1):
         ip = _extract_ip(base)
         country_part = base[base.find("("):base.find(")")+1] if "(" in base else ""
         print(f"  [{i:>2}] {ip} {country_part}")
 
-    print(f"\n  输入编号解锁（逗号/空格分隔，支持范围 2~11），A=全部删除，Enter=返回")
-    print(f"  也支持地区码：HK(香港) SG(新加坡) AS(全亚洲) EU(欧洲) NA(北美) OC/AU(大洋洲)")
-    raw = input("  >> ").strip()
+    print(_("unblock_select_prompt"))
+    print(_("unblock_region_codes"))
+    raw = input(_("unblock_input_prompt")).strip()
     if not raw:
         return
 
@@ -560,8 +732,8 @@ def unblock_servers() -> None:
                     selected_indices.add(i)
 
     if not selected_indices:
-        print("[!] 未选择有效项目")
-        input("按 Enter 返回...")
+        print(_("unblock_no_selection"))
+        input(_("press_enter_return"))
         return
 
     # 收集所有需要删除的规则（每组删除 IN+OUT 两条）
@@ -569,13 +741,13 @@ def unblock_servers() -> None:
     for i in sorted(selected_indices):
         to_delete.extend(groups[i][1])
 
-    print(f"\n[+] 正在删除 {len(to_delete)} 条规则（{len(selected_indices)} 个服务器）...")
+    print(_("unblock_deleting").format(total=len(to_delete), servers=len(selected_indices)))
     for i, name in enumerate(to_delete, 1):
         run_netsh(["delete", "rule", f'name={name}'])
-        _show_progress(i, len(to_delete), f"删除: {name}")
-    print(f"\n[✓] 已删除 {len(to_delete)} 条规则（{len(selected_indices)} 个服务器）")
+        _show_progress(i, len(to_delete), _("deleting_progress").format(name=name))
+    print(_("unblock_done").format(total=len(to_delete), servers=len(selected_indices)))
     log_action(f"解锁: 删除 {len(to_delete)} 条规则（{len(selected_indices)} 个服务器）")
-    input("按 Enter 返回...")
+    input(_("press_enter_return"))
 
 
 # ═══════════════════════════════════════════════
@@ -585,16 +757,16 @@ def unblock_servers() -> None:
 def write_banner() -> None:
     """显示标题画面"""
     os.system("cls")
-    print("╔═══════════════════════════════════════════════╗")
-    print("║       HG 服务器锁区工具 v5.0                  ║")
-    print("║       双向（传入 + 传出）封锁                 ║")
-    print("║       自由组合 — 编号 + 地区码混合输入        ║")
-    print("╚═══════════════════════════════════════════════╝")
-    print("目标程式：hngsync.exe、HeroesAndGeneralsDesktop.exe")
-    print("封锁模式：传入 / 传出双向封锁，全协议，全埠")
+    print(_("banner_top"))
+    print(_("banner_line1"))
+    print(_("banner_line2"))
+    print(_("banner_line3"))
+    print(_("banner_bottom"))
+    print(_("banner_targets"))
+    print(_("banner_mode"))
     print()
-    print("规则计算说明：")
-    print("  每个 IP × 2 个程式 × 2 方向 = 每 IP 4 条规则")
+    print(_("banner_rule_note"))
+    print(_("banner_rule_detail"))
     print()
 
 
@@ -607,20 +779,20 @@ def show_ip_distribution() -> None:
             regions[r] = []
         regions[r].append(f"{svr['ip']} ({svr.get('country', '?')})")
 
-    print("IP 分布（硬编码地区）：")
+    print(_("ip_dist_title"))
     region_labels = {
-        "EU": "欧洲",
-        "AS": "亚洲",
-        "NA": "北美",
-        "OC": "大洋洲",
+        "EU": _("region_eu"),
+        "AS": _("region_as"),
+        "NA": _("region_na"),
+        "OC": _("region_oc"),
     }
     for r in ["EU", "AS", "NA", "OC"]:
         if r in regions:
             label = region_labels.get(r, r)
             desc = "  ".join(regions[r][:3])
             if len(regions[r]) > 3:
-                desc += f"  ...等 {len(regions[r])} 个"
-            print(f"  {label}（{r}）  {desc}")
+                desc += _("and_more").format(count=len(regions[r]))
+            print(_("ip_dist_line").format(label=label, code=r, desc=desc))
     print()
 
 
@@ -629,17 +801,20 @@ def show_ip_distribution() -> None:
 # ═══════════════════════════════════════════════
 
 def main() -> None:
-    global app_paths
+    global app_paths, current_lang
 
     log_init()
     log_info("使用者授权管理员权限")
 
     # 检查管理员权限
     if not is_admin():
-        print("[!] 需要管理员权限，正在请求...")
+        print(_("need_admin"))
         log_info("请求管理员权限")
         run_as_admin()
         return
+
+    cfg = load_config()
+    current_lang = cfg.get("lang", "zh")
 
     set_console_size()
 
@@ -655,25 +830,26 @@ def main() -> None:
         write_banner()
         show_ip_distribution()
         print()
-        print("操作：")
-        print("  [1] 封锁服务器     编号或地区码（如 HK,NA,OC）")
-        print("  [2] 解锁服务器     从封锁列表中移除规则")
-        print("  [3] 清空所有规则   移除所有 HG 规则")
-        print("  [4] 变更路径       重新指定 HnG 资料夹")
-        print("  [0] 离开")
+        print(_("menu_header"))
+        print(_("menu_block"))
+        print(_("menu_unblock"))
+        print(_("menu_clear"))
+        print(_("menu_change_path"))
+        print(_("menu_lang"))
+        print(_("menu_exit"))
 
-        choice = input("\n请选择 (0-4): ").strip()
+        choice = input(_("menu_choice")).strip()
 
         if choice == "1":
             block_servers()
         elif choice == "2":
             unblock_servers()
         elif choice == "3":
-            print("\n[+] 正在移除所有防火墙规则...")
+            print(_("clearing_all_rules"))
             cnt = remove_all_rules()
-            print(f"\n[✓] 已移除 {cnt} 条规则")
+            print(_("cleared_all_rules").format(count=cnt))
             log_action("已执行清空所有规则")
-            input("按 Enter 返回...")
+            input(_("press_enter_return"))
         elif choice == "4":
             print()
             hn_path = select_hn_root()
@@ -681,13 +857,18 @@ def main() -> None:
                 app: os.path.join(hn_path, f"{app}.exe")
                 for app in APP_NAMES
             }
-            print("[✓] 路径已更新")
+            print(_("path_updated"))
+        elif choice == "5":
+            current_lang = "en" if current_lang == "zh" else "zh"
+            save_config()
+            print(_("lang_switched"))
+            input(_("press_enter_continue"))
         elif choice == "0":
-            print("\n[-] 再见")
+            print(_("goodbye"))
             break
         else:
-            print("\n[!] 无效选项")
-            input("按 Enter 继续...")
+            print(_("invalid_option"))
+            input(_("press_enter_continue"))
 
 
 def set_console_size(cols: int = 90, lines: int = 40) -> None:
@@ -696,7 +877,7 @@ def set_console_size(cols: int = 90, lines: int = 40) -> None:
         import ctypes
         from ctypes import wintypes
 
-        ctypes.windll.kernel32.SetConsoleTitleW("HG 服务器锁区工具 v5.0")
+        ctypes.windll.kernel32.SetConsoleTitleW(_("console_title"))
         os.system(f"mode con cols={cols} lines={lines}")
 
         h = ctypes.windll.kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE
@@ -712,9 +893,9 @@ if __name__ == "__main__":
     except Exception:
         import traceback
         traceback.print_exc()
-        print("\n[!] 发生未预期的错误，请截图或记录上方红色文字。")
-        print("    你也可以检查 HG_lock.log 中的错误日志。")
-        print("\n按任意键离开...")
+        print(_("error_unexpected"))
+        print(_("error_check_log"))
+        print(_("press_any_key"))
         try:
             import msvcrt
             msvcrt.getch()
