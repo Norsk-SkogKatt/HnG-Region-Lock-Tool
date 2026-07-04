@@ -472,45 +472,105 @@ def _parse_region_input(raw: str, items: list[dict]) -> set[int]:
     return selected
 
 
+def _group_rules_by_base(rules: list[str]) -> list[tuple[str, list[str]]]:
+    """将规则列表按基底名称分组（去掉 -IN/-OUT 后缀）。
+    返回 [(基底名称, [完整规则名1, 规则名2, ...]), ...] 保持排序。
+    """
+    groups: dict[str, list[str]] = {}
+    for name in rules:
+        if name.endswith("-IN"):
+            base = name[:-3]
+        elif name.endswith("-OUT"):
+            base = name[:-4]
+        else:
+            base = name
+        groups.setdefault(base, []).append(name)
+    return [(base, groups[base]) for base in sorted(groups)]
+
+
+def _extract_ip(base: str) -> str:
+    """从基底名称中提取 IP，如 HG-135.136.10.86(HK-HongKong)-hngsync → 135.136.10.86"""
+    s = base.removeprefix("HG-")
+    idx = s.find("(")
+    return s[:idx] if idx > 0 else s
+
+
+def _match_rule_base_to_region(base: str, code: str) -> bool:
+    """判断基底名称是否匹配地区码"""
+    code_upper = code.upper()
+    if code_upper in ("OC", "AU"):
+        return "(AU-" in base
+    if code_upper == "AS":
+        return "(HK-" in base or "(SG-" in base
+    if code_upper == "HK":
+        return "(HK-" in base
+    if code_upper == "SG":
+        return "(SG-" in base
+    if code_upper == "EU":
+        for prefix in ("(FR-", "(DE-", "(PL-"):
+            if prefix in base:
+                return True
+        return False
+    if code_upper == "NA":
+        return "(CA-" in base or "(US-" in base
+    return False
+
+
 def unblock_servers() -> None:
-    """自由选择要解锁的防火墙规则"""
+    """自由选择要解锁的防火墙规则（IN/OUT 合并为一组）"""
     rules = get_rule_lines("HG-")
     if not rules:
         print("\n目前无任何 HG 规则")
         input("按 Enter 返回...")
         return
 
-    sorted_rules = sorted(rules)
-    print(f"\n目前活跃的 HG 规则（{len(sorted_rules)} 条）:")
-    for i, name in enumerate(sorted_rules, 1):
-        print(f"  [{i:>2}] {name}")
+    groups = _group_rules_by_base(rules)
+    print(f"\n目前活跃的 HG 规则（{len(groups)} 组，每组含 IN+OUT）:")
+    for i, (base, _) in enumerate(groups, 1):
+        ip = _extract_ip(base)
+        app = base.split("-")[-1] if "-" in base else base
+        country_part = base[base.find("("):base.find(")")+1] if "(" in base else ""
+        print(f"  [{i:>2}] {ip} {country_part} - {app}")
 
-    print(f"\n  输入编号解锁（支持范围 2~11，逗号/空格分隔），A=全部删除，Enter=返回")
+    print(f"\n  输入编号解锁（逗号/空格分隔，支持范围 2~11），A=全部删除，Enter=返回")
+    print(f"  也支持地区码：HK(香港) SG(新加坡) AS(全亚洲) EU(欧洲) NA(北美) OC/AU(大洋洲)")
     raw = input("  >> ").strip()
     if not raw:
         return
 
     selected_indices: set[int] = set()
     if raw.upper() == "A":
-        selected_indices = set(range(len(sorted_rules)))
+        selected_indices = set(range(len(groups)))
     else:
         for part in raw.replace(",", " ").split():
-            result = _parse_range_token(part, len(sorted_rules))
+            t = part.strip()
+            # 数字或范围
+            result = _parse_range_token(t, len(groups))
             if result:
                 selected_indices.update(result)
+                continue
+            # 地区码
+            t_upper = t.upper()
+            for i, (base, _) in enumerate(groups):
+                if _match_rule_base_to_region(base, t_upper):
+                    selected_indices.add(i)
 
     if not selected_indices:
-        print("[!] 未选择有效编号")
+        print("[!] 未选择有效项目")
         input("按 Enter 返回...")
         return
 
-    to_delete = [sorted_rules[i] for i in sorted(selected_indices)]
-    print(f"\n[+] 正在删除 {len(to_delete)} 条规则...")
+    # 收集所有需要删除的规则（每组删除 IN+OUT 两条）
+    to_delete = []
+    for i in sorted(selected_indices):
+        to_delete.extend(groups[i][1])
+
+    print(f"\n[+] 正在删除 {len(to_delete)} 条规则（{len(selected_indices)} 组）...")
     for i, name in enumerate(to_delete, 1):
         run_netsh(["delete", "rule", f'name={name}'])
         _show_progress(i, len(to_delete), f"删除: {name}")
-    print(f"\n[✓] 已删除 {len(to_delete)} 条规则")
-    log_action(f"解锁: 删除 {len(to_delete)} 条规则")
+    print(f"\n[✓] 已删除 {len(to_delete)} 条规则（{len(selected_indices)} 组）")
+    log_action(f"解锁: 删除 {len(to_delete)} 条规则（{len(selected_indices)} 组）")
     input("按 Enter 返回...")
 
 
