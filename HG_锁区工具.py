@@ -373,9 +373,9 @@ def block_servers() -> None:
             print(f"  {tag}{idx:>2}: {ip}  ({country})")
             idx += 1
 
-    print(f"\n  输入编号或地区码（逗号/空格分隔），A=全选，Enter=返回")
+    print(f"\n  输入编号、范围或地区码（逗号/空格分隔），A=全选，Enter=返回")
+    print(f"  范例:  2~11  或  HK,4~9  或  1,NA,OC  或  A")
     print(f"  地区码: HK(香港) SG(新加坡) AS(全亚洲) EU(欧洲) NA(北美) OC(大洋洲/AU)")
-    print(f"  范例:  2,NA,OC 或 HK,EU 或 1,3,5")
     raw = input("  >> ").strip()
     if not raw:
         return
@@ -407,37 +407,64 @@ def block_servers() -> None:
     input("按 Enter 返回...")
 
 
+def _parse_range_token(token: str, item_count: int) -> set[int]:
+    """解析单个标记：数字 或 范围（2~11/2-11），回传 0-index 索引集合"""
+    result: set[int] = set()
+    t = token.strip()
+    if "~" in t or "-" in t:
+        sep = "~" if "~" in t else "-"
+        parts = t.split(sep, 1)
+        try:
+            start = int(parts[0].strip()) - 1
+            end = int(parts[1].strip()) - 1
+            if start < 0:
+                start = 0
+            if end >= item_count:
+                end = item_count - 1
+            if start <= end:
+                for n in range(start, end + 1):
+                    result.add(n)
+        except ValueError:
+            pass
+    else:
+        try:
+            n = int(t) - 1
+            if 0 <= n < item_count:
+                result.add(n)
+        except ValueError:
+            pass
+    return result
+
+
 def _parse_region_input(raw: str, items: list[dict]) -> set[int]:
-    """解析使用者输入：支援编号、地区码、组合"""
+    """解析使用者输入：支援编号、范围（2~11）、地区码、组合"""
     selected: set[int] = set()
     if raw.upper() == "A":
         return set(range(len(items)))
 
     for part in raw.replace(",", " ").split():
-        t = part.strip().upper()
-        # 数字
-        try:
-            n = int(t) - 1
-            if 0 <= n < len(items):
-                selected.add(n)
+        t = part.strip()
+        # 范围或数字
+        result = _parse_range_token(t, len(items))
+        if result:
+            selected.update(result)
             continue
-        except ValueError:
-            pass
 
+        t_upper = t.upper()
         # 地区码
-        if t in ("AS", "EU", "NA", "OC"):
+        if t_upper in ("AS", "EU", "NA", "OC"):
             for i, svr in enumerate(items):
-                if svr.get("region") == t:
+                if svr.get("region") == t_upper:
                     selected.add(i)
-        elif t == "HK":
+        elif t_upper == "HK":
             for i, svr in enumerate(items):
                 if svr.get("country", "").startswith("HK"):
                     selected.add(i)
-        elif t == "SG":
+        elif t_upper == "SG":
             for i, svr in enumerate(items):
                 if svr.get("country", "").startswith("SG"):
                     selected.add(i)
-        elif t in ("AU",):
+        elif t_upper in ("AU",):
             for i, svr in enumerate(items):
                 if svr.get("region") == "OC":
                     selected.add(i)
@@ -458,7 +485,7 @@ def unblock_servers() -> None:
     for i, name in enumerate(sorted_rules, 1):
         print(f"  [{i:>2}] {name}")
 
-    print(f"\n  输入编号解锁（逗号/空格分隔），A=全部删除，Enter=返回")
+    print(f"\n  输入编号解锁（支持范围 2~11，逗号/空格分隔），A=全部删除，Enter=返回")
     raw = input("  >> ").strip()
     if not raw:
         return
@@ -468,12 +495,9 @@ def unblock_servers() -> None:
         selected_indices = set(range(len(sorted_rules)))
     else:
         for part in raw.replace(",", " ").split():
-            try:
-                n = int(part.strip()) - 1
-                if 0 <= n < len(sorted_rules):
-                    selected_indices.add(n)
-            except ValueError:
-                pass
+            result = _parse_range_token(part, len(sorted_rules))
+            if result:
+                selected_indices.update(result)
 
     if not selected_indices:
         print("[!] 未选择有效编号")
