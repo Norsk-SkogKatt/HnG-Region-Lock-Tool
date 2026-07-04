@@ -1,7 +1,7 @@
 """
-HG 伺服器鎖區工具 v5.0 (GUI)
-透過 Windows 進階防火牆 (netsh advfirewall) 建立雙向封鎖規則
-自由組合模式 — 複選框選擇要封鎖的伺服器
+HG 服务器锁区工具 v5.0 (GUI)
+透过 Windows 进阶防火墙 (netsh advfirewall) 建立双向封锁规则
+自由组合模式 — 复选框选择要封锁的服务器
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
-# ── 伺服器 IP 清單（硬編碼地區 — 由維護者預先查好） ──
+# ── 服务器 IP 清单（硬编码地区 — 由维护者预先查好） ──
 SERVERS: list[dict[str, str]] = [
     {"ip": "139.99.120.230", "region": "AS", "country": "SG-Singapore", "short": "SG"},
     {"ip": "135.136.10.86", "region": "AS", "country": "HK-HongKong", "short": "HK"},
@@ -38,7 +38,7 @@ APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
 
 
 # ═══════════════════════════════════════════════
-# 工具函式（與 CLI 版共用）
+# 工具函式（与 CLI 版共用）
 # ═══════════════════════════════════════════════
 
 def _get_base_dir() -> str:
@@ -124,11 +124,11 @@ def run_as_admin() -> None:
     )
 
 
-# ── 防火牆操作 ──
+# ── 防火墙操作 ──
 
 def run_netsh(args: list[str]) -> str:
     cmd = ["netsh", "advfirewall", "firewall"] + args
-    log_info(f"執行: {' '.join(cmd)}")
+    log_info(f"执行: {' '.join(cmd)}")
     try:
         result = subprocess.run(
             cmd, capture_output=True, timeout=30,
@@ -137,10 +137,10 @@ def run_netsh(args: list[str]) -> str:
         stdout = result.stdout.decode("gbk", errors="replace") if result.stdout else ""
         stderr = result.stderr.decode("gbk", errors="replace") if result.stderr else ""
         if result.returncode != 0:
-            log_error(f"netsh 錯誤: {(stdout + stderr).strip()}")
+            log_error(f"netsh 错误: {(stdout + stderr).strip()}")
         return (stdout + stderr).strip()
     except subprocess.TimeoutExpired:
-        log_error("netsh 執行超時")
+        log_error("netsh 执行超时")
         return ""
     except FileNotFoundError:
         log_error("找不到 netsh.exe")
@@ -167,12 +167,12 @@ def remove_all_rules_silent() -> int:
     for name in rules:
         run_netsh(["delete", "rule", f'name={name}'])
     if count:
-        log_action(f"已移除所有規則 ({count} 條)")
+        log_action(f"已移除所有规则 ({count} 条)")
     return count
 
 
 def add_block_rules_silent(ip: str, country: str) -> int:
-    """為指定 IP 建立雙向封鎖規則，回傳新增規則數"""
+    """为指定 IP 建立双向封锁规则，回传新增规则数"""
     added = 0
     for app in APP_NAMES:
         prog = app_paths_global.get(app, "")
@@ -194,23 +194,23 @@ def add_block_rules_silent(ip: str, country: str) -> int:
     return added
 
 
-# ── 全域狀態 ──
+# ── 全域状态 ──
 
 app_paths_global: dict[str, str] = {}
 
 
 # ═══════════════════════════════════════════════
-# GUI 應用程式
+# GUI 应用程式
 # ═══════════════════════════════════════════════
 
 class HGLockerGUI:
-    """HG 伺服器鎖區工具 GUI 版"""
+    """HG 服务器锁区工具 GUI 版"""
 
-    REGION_LABELS = {"EU": "歐洲", "AS": "亞洲", "NA": "北美", "OC": "大洋洲"}
+    REGION_LABELS = {"EU": "欧洲", "AS": "亚洲", "NA": "北美", "OC": "大洋洲"}
 
     def __init__(self) -> None:
         self.root = tk.Tk()
-        self.root.title("HG 伺服器鎖區工具 v5.0")
+        self.root.title("HG 服务器锁区工具 v5.0")
         self.root.resizable(False, False)
         try:
             self.root.iconbitmap(default=os.path.join(_get_base_dir(), "icon.ico"))
@@ -219,12 +219,12 @@ class HGLockerGUI:
 
         self.servers_info: list[dict] = []
         self.hn_path: str = ""
-        self.is_busy: bool = False  # 鎖定按鈕防止重複操作
+        self.is_busy: bool = False  # 锁定按钮防止重复操作
 
         self._build_ui()
         self._init_session()
 
-    # ─── UI 構建 ───
+    # ─── UI 构建 ───
 
     def _build_ui(self) -> None:
         self.root.configure(bg="#f0f0f0")
@@ -232,44 +232,44 @@ class HGLockerGUI:
         main = ttk.Frame(self.root, padding=12)
         main.pack(fill=tk.BOTH, expand=True)
 
-        # 標題
-        title = tk.Label(main, text="HG 伺服器鎖區工具", font=("Segoe UI", 18, "bold"),
+        # 标题
+        title = tk.Label(main, text="HG 服务器锁区工具", font=("Segoe UI", 18, "bold"),
                          bg="#f0f0f0", fg="#1a1a2e")
         title.pack(pady=(0, 2))
 
-        subtitle = tk.Label(main, text="雙向封鎖 · 自由組合（勾選要封鎖的伺服器）", font=("Segoe UI", 9),
+        subtitle = tk.Label(main, text="双向封锁 · 自由组合（勾选要封锁的服务器）", font=("Segoe UI", 9),
                             bg="#f0f0f0", fg="#666")
         subtitle.pack(pady=(0, 8))
 
-        # ── IP 分佈顯示 ──
+        # ── IP 分布显示 ──
         ip_row = ttk.Frame(main)
         ip_row.pack(fill=tk.X, pady=(0, 6))
         self.ip_labels: dict[str, tk.Label] = {}
         for r in ("AS", "EU", "NA", "OC"):
-            lbl = tk.Label(ip_row, text=f"{self.REGION_LABELS.get(r, r)}: 查詢中...",
+            lbl = tk.Label(ip_row, text=f"{self.REGION_LABELS.get(r, r)}: 查询中...",
                            font=("Segoe UI", 8), bg="#f0f0f0", fg="#888")
             lbl.pack(side=tk.LEFT, padx=(0, 10))
             self.ip_labels[r] = lbl
 
-        # ── 伺服器列表（複選框） ──
-        self.srv_frame = ttk.LabelFrame(main, text="選擇要封鎖的伺服器", padding=6)
+        # ── 服务器列表（复选框） ──
+        self.srv_frame = ttk.LabelFrame(main, text="选择要封锁的服务器", padding=6)
         self.srv_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
         self.server_checkboxes: list[tuple[ttk.Checkbutton, tk.BooleanVar, dict]] = []
 
-        # 預留文字（初始化後會被 _populate_servers 取代）
-        self._tmp_srv_label = tk.Label(self.srv_frame, text="正在載入伺服器資料...",
+        # 预留文字（初始化后会被 _populate_servers 取代）
+        self._tmp_srv_label = tk.Label(self.srv_frame, text="正在载入服务器资料...",
                                        font=("Segoe UI", 9), fg="#888")
         self._tmp_srv_label.pack(padx=12, pady=8)
 
-        # ── 操作按鈕 ──
+        # ── 操作按钮 ──
         action_frame = ttk.Frame(main)
         action_frame.pack(fill=tk.X, pady=(0, 8))
 
-        self.btn_block = tk.Button(action_frame, text="封鎖選中", font=("Segoe UI", 11, "bold"),
+        self.btn_block = tk.Button(action_frame, text="封锁选中", font=("Segoe UI", 11, "bold"),
                                    command=self._on_block, padx=12, pady=4)
         self.btn_block.pack(side=tk.LEFT, padx=(0, 6))
 
-        self.btn_unblock = tk.Button(action_frame, text="解鎖", font=("Segoe UI", 11, "bold"),
+        self.btn_unblock = tk.Button(action_frame, text="解锁", font=("Segoe UI", 11, "bold"),
                                      command=self._on_unlock, padx=12, pady=4)
         self.btn_unblock.pack(side=tk.LEFT, padx=6)
 
@@ -277,15 +277,15 @@ class HGLockerGUI:
                                    command=self._on_clear, padx=12, pady=4)
         self.btn_clear.pack(side=tk.LEFT, padx=6)
 
-        # ── 分隔線 ──
+        # ── 分隔线 ──
         sep = ttk.Separator(main, orient=tk.HORIZONTAL)
         sep.pack(fill=tk.X, pady=(0, 6))
 
-        # ── 狀態列 ──
+        # ── 状态列 ──
         status_frame = ttk.Frame(main)
         status_frame.pack(fill=tk.X, pady=(0, 6))
 
-        self.lbl_path = tk.Label(status_frame, text="遊戲路徑: 尚未設定", font=("Segoe UI", 10),
+        self.lbl_path = tk.Label(status_frame, text="游戏路径: 尚未设定", font=("Segoe UI", 10),
                                  anchor="w", bg="#f0f0f0")
         self.lbl_path.pack(fill=tk.X)
 
@@ -293,19 +293,19 @@ class HGLockerGUI:
                                  anchor="w", bg="#f0f0f0", fg="#e07c24")
         self.lbl_busy.pack(fill=tk.X)
 
-        # ── 底部按鈕列 ──
+        # ── 底部按钮列 ──
         bottom = ttk.Frame(main)
         bottom.pack(fill=tk.X)
 
-        self.btn_fw = tk.Button(bottom, text="🛡 開啟防火牆", font=("Segoe UI", 10),
+        self.btn_fw = tk.Button(bottom, text="🛡 开启防火墙", font=("Segoe UI", 10),
                                 command=self._open_firewall, padx=8, pady=4)
         self.btn_fw.pack(side=tk.LEFT, padx=(0, 4))
 
-        self.btn_path = tk.Button(bottom, text="📁 變更路徑", font=("Segoe UI", 10),
+        self.btn_path = tk.Button(bottom, text="📁 变更路径", font=("Segoe UI", 10),
                                   command=self._on_change_path, padx=8, pady=4)
         self.btn_path.pack(side=tk.LEFT, padx=4)
 
-        # 禁用所有按鈕直到初始化完成
+        # 禁用所有按钮直到初始化完成
         self._set_buttons_enabled(False)
 
     def _set_buttons_enabled(self, enabled: bool) -> None:
@@ -335,15 +335,15 @@ class HGLockerGUI:
             if r in regions:
                 desc = "  ".join(regions[r][:2])
                 if len(regions[r]) > 2:
-                    desc += f" …等 {len(regions[r])} 個"
+                    desc += f" …等 {len(regions[r])} 个"
                 self.ip_labels[r].configure(text=desc, fg="#333")
             else:
                 self.ip_labels[r].configure(text="—", fg="#888")
 
-    # ─── 複選框重建（支援地區碼分組） ───
+    # ─── 复选框重建（支援地区码分组） ───
 
     def _populate_servers(self) -> None:
-        """根據 self.servers_info 重建伺服器複選框"""
+        """根据 self.servers_info 重建服务器复选框"""
         for w in self.srv_frame.winfo_children():
             w.destroy()
         self.server_checkboxes.clear()
@@ -371,24 +371,24 @@ class HGLockerGUI:
     # ─── 初始化 ───
 
     def _init_session(self) -> None:
-        """程式啟動時的背景初始化"""
-        # 寫入記錄
-        log_raw(f"\n{'='*60}\n=== HG 鎖區工具 GUI v5.0 - {datetime.now():%Y-%m-%d %H:%M:%S} ===\n{'='*60}")
+        """程式启动时的背景初始化"""
+        # 写入记录
+        log_raw(f"\n{'='*60}\n=== HG 锁区工具 GUI v5.0 - {datetime.now():%Y-%m-%d %H:%M:%S} ===\n{'='*60}")
 
-        # 背景執行初始化
+        # 背景执行初始化
         def task() -> None:
             try:
-                # 1. 使用硬編碼的伺服器資料
+                # 1. 使用硬编码的服务器资料
                 self.servers_info = list(SERVERS)
-                log_info(f"使用硬編碼伺服器資料（{len(self.servers_info)} 個 IP）")
+                log_info(f"使用硬编码服务器资料（{len(self.servers_info)} 个 IP）")
 
-                # 2. 更新 IP 顯示
+                # 2. 更新 IP 显示
                 self.root.after(0, self._show_ip_distribution)
 
-                # 3. 建立伺服器複選框
+                # 3. 建立服务器复选框
                 self.root.after(0, self._populate_servers)
 
-                # 4. 讀取／選擇路徑
+                # 4. 读取／选择路径
                 cfg = load_config()
                 saved_path = cfg.get("hn_path", "").replace("/", "\\")
                 path_ok = bool(saved_path and all(
@@ -402,87 +402,87 @@ class HGLockerGUI:
                     app_paths_global = {app: os.path.join(saved_path, f"{app}.exe")
                                         for app in APP_NAMES}
                     self.root.after(0, lambda: self.lbl_path.configure(
-                        text=f"遊戲路徑: {saved_path}"))
-                    log_info(f"使用上次路徑: {saved_path}")
+                        text=f"游戏路径: {saved_path}"))
+                    log_info(f"使用上次路径: {saved_path}")
                 else:
                     self.root.after(0, self._pick_path_dialog)
 
-                # 5. 啟用按鈕
+                # 5. 启用按钮
                 self.root.after(0, lambda: self._set_buttons_enabled(True))
 
                 log_info("初始化完成")
             except Exception as e:
-                log_error(f"初始化錯誤: {e}")
+                log_error(f"初始化错误: {e}")
                 self.root.after(0, lambda err=e: self.lbl_busy.configure(
-                    text=f"初始化錯誤: {err}"))
+                    text=f"初始化错误: {err}"))
 
         threading.Thread(target=task, daemon=True).start()
 
-    # ─── 路徑選擇 ───
+    # ─── 路径选择 ───
 
     def _pick_path_dialog(self) -> None:
-        path = filedialog.askdirectory(title="請選擇 HnG 遊戲資料夾")
+        path = filedialog.askdirectory(title="请选择 HnG 游戏资料夹")
         if not path:
-            self.lbl_busy.configure(text="尚未設定路徑，部分功能受限")
+            self.lbl_busy.configure(text="尚未设定路径，部分功能受限")
             return
 
-        # filedialog 返回的路徑可能包含正斜杠，netsh 不支援
+        # filedialog 返回的路径可能包含正斜杠，netsh 不支援
         path = path.replace("/", "\\")
 
         missing = [app for app in APP_NAMES
                    if not os.path.isfile(os.path.join(path, f"{app}.exe"))]
         if missing:
-            messagebox.showerror("路徑錯誤",
-                                 f"找不到以下檔案：\n" +
+            messagebox.showerror("路径错误",
+                                 f"找不到以下档案：\n" +
                                  "\n".join(f"  - {m}.exe" for m in missing) +
-                                 "\n\n請確認選擇了正確的 HnG 資料夾。")
-            self.lbl_busy.configure(text="路徑錯誤，請重試")
+                                 "\n\n请确认选择了正确的 HnG 资料夹。")
+            self.lbl_busy.configure(text="路径错误，请重试")
             return
 
         self.hn_path = path
         global app_paths_global
         app_paths_global = {app: os.path.join(path, f"{app}.exe") for app in APP_NAMES}
-        self.lbl_path.configure(text=f"遊戲路徑: {path}")
+        self.lbl_path.configure(text=f"游戏路径: {path}")
         save_config(hn_path=path, last_mode=load_config().get("last_mode", ""))
-        log_info(f"遊戲路徑: {path}")
-        self.lbl_busy.configure(text="路徑已設定")
+        log_info(f"游戏路径: {path}")
+        self.lbl_busy.configure(text="路径已设定")
 
-    # ─── 操作處理 ───
+    # ─── 操作处理 ───
 
     def _on_block(self) -> None:
         if self.is_busy:
             return
         if not self.hn_path:
-            messagebox.showwarning("未設定路徑", "請先透過「變更路徑」選擇 HnG 遊戲資料夾。")
+            messagebox.showwarning("未设定路径", "请先透过“变更路径”选择 HnG 游戏资料夹。")
             return
 
-        # 收集選中的伺服器
+        # 收集选中的服务器
         selected = [svr for _, var, svr in self.server_checkboxes if var.get()]
         if not selected:
-            messagebox.showinfo("封鎖", "請先勾選要封鎖的伺服器")
+            messagebox.showinfo("封锁", "请先勾选要封锁的服务器")
             return
 
-        self._set_busy(True, f"正在封鎖 {len(selected)} 個 IP…")
+        self._set_busy(True, f"正在封锁 {len(selected)} 个 IP…")
 
         def task() -> None:
             try:
-                # 先移除所有現有規則
+                # 先移除所有现有规则
                 removed = remove_all_rules_silent()
                 if removed:
-                    log_info(f"封鎖前已清除 {removed} 條舊規則")
+                    log_info(f"封锁前已清除 {removed} 条旧规则")
                 total_rules = 0
                 for item in selected:
                     total_rules += add_block_rules_silent(item["ip"], item["country"])
-                log_action(f"封鎖 {len(selected)} 個 IP: {', '.join(s['ip'] for s in selected)}")
+                log_action(f"封锁 {len(selected)} 个 IP: {', '.join(s['ip'] for s in selected)}")
                 self.root.after(0, lambda: messagebox.showinfo(
-                    "封鎖完成",
-                    f"已封鎖 {len(selected)} 個 IP\n共建立 {total_rules} 條防火牆規則"
+                    "封锁完成",
+                    f"已封锁 {len(selected)} 个 IP\n共建立 {total_rules} 条防火墙规则"
                 ))
             except Exception as e:
-                log_error(f"封鎖失敗: {e}")
-                self.root.after(0, lambda err=e: messagebox.showerror("錯誤", f"封鎖失敗：{err}"))
+                log_error(f"封锁失败: {e}")
+                self.root.after(0, lambda err=e: messagebox.showerror("错误", f"封锁失败：{err}"))
             finally:
-                self.root.after(0, lambda: self._set_busy(False, "就緒"))
+                self.root.after(0, lambda: self._set_busy(False, "就绪"))
 
         threading.Thread(target=task, daemon=True).start()
 
@@ -491,17 +491,17 @@ class HGLockerGUI:
             return
         rules = get_rule_lines("HG-")
         if not rules:
-            messagebox.showinfo("解鎖", "目前無任何活躍的 HG 規則")
+            messagebox.showinfo("解锁", "目前无任何活跃的 HG 规则")
             return
 
-        # 彈出解鎖對話框
+        # 弹出解锁对话框
         top = tk.Toplevel(self.root)
-        top.title("選擇要解鎖的規則")
+        top.title("选择要解锁的规则")
         top.transient(self.root)
         top.grab_set()
         top.resizable(False, False)
 
-        tk.Label(top, text="選擇要刪除的規則：", font=("Segoe UI", 10)).pack(padx=12, pady=(10, 4))
+        tk.Label(top, text="选择要删除的规则：", font=("Segoe UI", 10)).pack(padx=12, pady=(10, 4))
 
         frame = ttk.Frame(top)
         frame.pack(padx=12, pady=4, fill=tk.BOTH, expand=True)
@@ -519,44 +519,44 @@ class HGLockerGUI:
         def do_delete() -> None:
             selected = [r for r, v in zip(sorted(rules), rule_vars) if v.get()]
             if not selected:
-                messagebox.showinfo("解鎖", "未選擇任何規則", parent=top)
+                messagebox.showinfo("解锁", "未选择任何规则", parent=top)
                 return
-            if not messagebox.askyesno("確認", f"確定刪除 {len(selected)} 條規則？", parent=top):
+            if not messagebox.askyesno("确认", f"确定删除 {len(selected)} 条规则？", parent=top):
                 return
 
             def task() -> None:
                 for name in selected:
                     run_netsh(["delete", "rule", f'name={name}'])
-                log_action(f"解鎖: 刪除 {len(selected)} 條規則")
+                log_action(f"解锁: 删除 {len(selected)} 条规则")
                 self.root.after(0, top.destroy)
-                self.root.after(0, lambda: messagebox.showinfo("完成", f"已刪除 {len(selected)} 條規則"))
+                self.root.after(0, lambda: messagebox.showinfo("完成", f"已删除 {len(selected)} 条规则"))
 
             threading.Thread(target=task, daemon=True).start()
 
-        ttk.Button(btn_frame, text="刪除選中", command=do_delete).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btn_frame, text="删除选中", command=do_delete).pack(side=tk.LEFT, padx=4)
         ttk.Button(btn_frame, text="取消", command=top.destroy).pack(side=tk.LEFT, padx=4)
 
     def _on_clear(self) -> None:
         if self.is_busy:
             return
-        if not messagebox.askyesno("確認清除", "確定要移除所有 HG 防火牆規則？"):
+        if not messagebox.askyesno("确认清除", "确定要移除所有 HG 防火墙规则？"):
             return
 
-        self._set_busy(True, "正在清除規則…")
+        self._set_busy(True, "正在清除规则…")
 
         def task() -> None:
             try:
                 count = remove_all_rules_silent()
-                log_action("已執行清空所有規則")
+                log_action("已执行清空所有规则")
                 self.root.after(0, lambda: messagebox.showinfo(
                     "清除完成",
-                    f"已移除 {count} 條防火牆規則" if count else "目前無任何 HG 規則"
+                    f"已移除 {count} 条防火墙规则" if count else "目前无任何 HG 规则"
                 ))
             except Exception as e:
-                log_error(f"清除失敗: {e}")
-                self.root.after(0, lambda err=e: messagebox.showerror("錯誤", f"清除失敗：{err}"))
+                log_error(f"清除失败: {e}")
+                self.root.after(0, lambda err=e: messagebox.showerror("错误", f"清除失败：{err}"))
             finally:
-                self.root.after(0, lambda: self._set_busy(False, "就緒"))
+                self.root.after(0, lambda: self._set_busy(False, "就绪"))
 
         threading.Thread(target=task, daemon=True).start()
 
@@ -566,33 +566,33 @@ class HGLockerGUI:
         self._pick_path_dialog()
 
     def _open_firewall(self) -> None:
-        """開啟 Windows Defender 防火牆進階安全設定"""
+        """开启 Windows Defender 防火墙进阶安全设定"""
         try:
-            log_info("使用者開啟 Windows 防火牆")
+            log_info("使用者开启 Windows 防火墙")
             subprocess.Popen(["wf.msc"], shell=True)
         except Exception as e:
-            log_error(f"開啟防火牆失敗: {e}")
-            messagebox.showerror("錯誤", "無法開啟 Windows 防火牆")
+            log_error(f"开启防火墙失败: {e}")
+            messagebox.showerror("错误", "无法开启 Windows 防火墙")
 
-    # ─── 啟動 ───
+    # ─── 启动 ───
 
     def run(self) -> None:
         self.root.mainloop()
 
 
 # ═══════════════════════════════════════════════
-# 進入點
+# 进入点
 # ═══════════════════════════════════════════════
 
 def main() -> None:
-    # 檢查管理員權限
+    # 检查管理员权限
     if not is_admin():
         root = tk.Tk()
         root.withdraw()
         messagebox.showwarning(
-            "需要管理員權限",
-            "HG 鎖區工具需要管理員權限才能操作防火牆規則。\n\n"
-            "將以管理員身分重新啟動…"
+            "需要管理员权限",
+            "HG 锁区工具需要管理员权限才能操作防火墙规则。\n\n"
+            "将以管理员身分重新启动…"
         )
         root.destroy()
         run_as_admin()
@@ -608,7 +608,7 @@ if __name__ == "__main__":
     except Exception:
         import traceback
         traceback.print_exc()
-        print("\n[!] 發生未預期的錯誤")
+        print("\n[!] 发生未预期的错误")
         try:
             import msvcrt
             msvcrt.getch()

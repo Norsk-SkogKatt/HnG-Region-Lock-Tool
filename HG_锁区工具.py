@@ -1,7 +1,7 @@
 """
-HG 伺服器鎖區工具 v5.0
-透過 Windows 進階防火牆 (netsh advfirewall) 建立雙向封鎖規則
-自由組合模式 — 自行選擇要封鎖/解鎖的伺服器（支援地區碼）
+HG 服务器锁区工具 v5.0
+透过 Windows 进阶防火墙 (netsh advfirewall) 建立双向封锁规则
+自由组合模式 — 自行选择要封锁/解锁的服务器（支援地区码）
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import sys
 from datetime import datetime
 
 
-# ── 伺服器 IP 清單（硬編碼地區 — 由維護者預先查好） ──
+# ── 服务器 IP 清单（硬编码地区 — 由维护者预先查好） ──
 SERVERS: list[dict[str, str]] = [
     {"ip": "139.99.120.230", "region": "AS", "country": "SG-Singapore", "short": "SG"},
     {"ip": "135.136.10.86", "region": "AS", "country": "HK-HongKong", "short": "HK"},
@@ -33,7 +33,7 @@ SERVERS: list[dict[str, str]] = [
 
 APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
 
-# ── 全域狀態 ──
+# ── 全域状态 ──
 LOG_FILE: str = ""
 CONFIG_FILE: str = ""
 app_paths: dict[str, str] = {}
@@ -44,25 +44,25 @@ app_paths: dict[str, str] = {}
 # ═══════════════════════════════════════════════
 
 def _get_base_dir() -> str:
-    """取得程式所在目錄（支援 PyInstaller 打包）"""
+    """取得程式所在目录（支援 PyInstaller 打包）"""
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
 
 def log_init() -> None:
-    """初始化記錄檔"""
+    """初始化记录档"""
     global LOG_FILE
     base = _get_base_dir()
     LOG_FILE = os.path.join(base, "HG_lock.log")
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"\n{'='*60}\n")
-        f.write(f"=== HG 鎖區工具 v5.0 - {datetime.now():%Y-%m-%d %H:%M:%S} ===\n")
+        f.write(f"=== HG 锁区工具 v5.0 - {datetime.now():%Y-%m-%d %H:%M:%S} ===\n")
         f.write(f"{'='*60}\n")
 
 
 def log_raw(text: str) -> None:
-    """寫入原始文字到記錄檔"""
+    """写入原始文字到记录档"""
     if not LOG_FILE:
         return
     try:
@@ -85,7 +85,7 @@ def log_error(text: str) -> None:
 
 
 # ═══════════════════════════════════════════════
-# 設定檔管理
+# 设定档管理
 # ═══════════════════════════════════════════════
 
 def _config_path() -> str:
@@ -119,11 +119,11 @@ def save_config(hn_path: str = "", last_mode: str = "") -> None:
 
 
 # ═══════════════════════════════════════════════
-# 管理員權限
+# 管理员权限
 # ═══════════════════════════════════════════════
 
 def is_admin() -> bool:
-    """檢查是否以管理員權限執行"""
+    """检查是否以管理员权限执行"""
     try:
         import ctypes
         return ctypes.windll.shell32.IsUserAnAdmin() != 0
@@ -132,7 +132,7 @@ def is_admin() -> bool:
 
 
 def run_as_admin() -> None:
-    """以管理員權限重啟程式"""
+    """以管理员权限重启程式"""
     import ctypes
     script = sys.argv[0]
     params = " ".join(sys.argv[1:])
@@ -142,13 +142,13 @@ def run_as_admin() -> None:
 
 
 # ═══════════════════════════════════════════════
-# 防火牆操作（netsh advfirewall）
+# 防火墙操作（netsh advfirewall）
 # ═══════════════════════════════════════════════
 
 def run_netsh(args: list[str]) -> str:
-    """執行 netsh 命令並回傳輸出"""
+    """执行 netsh 命令并回传输出"""
     cmd = ["netsh", "advfirewall", "firewall"] + args
-    log_info(f"執行: {' '.join(cmd)}")
+    log_info(f"执行: {' '.join(cmd)}")
     try:
         result = subprocess.run(
             cmd, capture_output=True, timeout=30,
@@ -158,18 +158,18 @@ def run_netsh(args: list[str]) -> str:
         stderr = result.stderr.decode("gbk", errors="replace") if result.stderr else ""
         output = stdout + stderr
         if result.returncode != 0:
-            log_error(f"netsh 錯誤: {output.strip()}")
+            log_error(f"netsh 错误: {output.strip()}")
         return output.strip()
     except subprocess.TimeoutExpired:
-        log_error("netsh 執行超時")
+        log_error("netsh 执行超时")
         return ""
     except FileNotFoundError:
-        log_error("找不到 netsh.exe，請確認 Windows 防火牆可用")
+        log_error("找不到 netsh.exe，请确认 Windows 防火墙可用")
         return ""
 
 
 def get_rule_lines(keyword: str = "HG-") -> list[str]:
-    """取得所有符合關鍵字的防火牆規則名稱"""
+    """取得所有符合关键字的防火墙规则名称"""
     output = run_netsh(["show", "rule", "name=all"])
     names: list[str] = []
     for line in output.splitlines():
@@ -188,27 +188,27 @@ def get_rule_lines(keyword: str = "HG-") -> list[str]:
 
 
 def remove_old_rules() -> None:
-    """移除舊版規則（v1/v2 格式）"""
+    """移除旧版规则（v1/v2 格式）"""
     rules = get_rule_lines("HG-")
     if not rules:
         return
-    print(f"\n[+] 發現 {len(rules)} 條舊規則，正在清除...")
+    print(f"\n[+] 发现 {len(rules)} 条旧规则，正在清除...")
     for name in rules:
         run_netsh(["delete", "rule", f'name={name}'])
-        print(f"    已刪除: {name}")
-    log_action(f"已清除 {len(rules)} 條舊規則")
+        print(f"    已删除: {name}")
+    log_action(f"已清除 {len(rules)} 条旧规则")
 
 
 def add_block_rules(
     ip: str, country: str, total: int = 0, current: int = 0
 ) -> int:
-    """為指定 IP 在每個目標程式上建立雙向封鎖規則"""
+    """为指定 IP 在每个目标程式上建立双向封锁规则"""
     for app in APP_NAMES:
         name_in = f"HG-{ip}({country})-{app}-IN"
         name_out = f"HG-{ip}({country})-{app}-OUT"
         prog = app_paths.get(app, "")
 
-        # 新增傳入規則
+        # 新增传入规则
         args_in = [
             "add", "rule",
             f"name={name_in}",
@@ -223,7 +223,7 @@ def add_block_rules(
         if total:
             _show_progress(current, total, f"{ip}({country}) {app} IN")
 
-        # 新增傳出規則
+        # 新增传出规则
         args_out = [
             "add", "rule",
             f"name={name_out}",
@@ -243,7 +243,7 @@ def add_block_rules(
 
 
 def _show_progress(current: int, total: int, label: str = "") -> None:
-    """顯示進度條"""
+    """显示进度条"""
     bar_width = 30
     filled = bar_width * current // total
     bar = "█" * filled + "░" * (bar_width - filled)
@@ -254,37 +254,37 @@ def _show_progress(current: int, total: int, label: str = "") -> None:
 
 
 def remove_all_rules() -> int:
-    """移除所有 HG 相關的防火牆規則"""
+    """移除所有 HG 相关的防火墙规则"""
     rules = get_rule_lines("HG-")
     count = len(rules)
     if not rules:
-        print("    無 HG 相關規則")
+        print("    无 HG 相关规则")
         return 0
     for i, name in enumerate(rules, 1):
         run_netsh(["delete", "rule", f'name={name}'])
-        _show_progress(i, count, f"刪除: {name}")
-    print(f"\n    已移除 {count} 條規則")
-    log_action(f"已移除所有規則 ({count} 條)")
+        _show_progress(i, count, f"删除: {name}")
+    print(f"\n    已移除 {count} 条规则")
+    log_action(f"已移除所有规则 ({count} 条)")
     return count
 
 
 def show_current_rules() -> None:
-    """顯示目前的 HG 防火牆規則"""
+    """显示目前的 HG 防火墙规则"""
     rules = get_rule_lines("HG-")
     if rules:
-        print(f"\n目前 HG 防火牆規則 ({len(rules)} 條):")
+        print(f"\n目前 HG 防火墙规则 ({len(rules)} 条):")
         for name in sorted(rules):
             print(f"  - {name}")
     else:
-        print("\n目前無任何 HG 防火牆規則")
+        print("\n目前无任何 HG 防火墙规则")
 
 
 # ═══════════════════════════════════════════════
-# 遊戲路徑選擇
+# 游戏路径选择
 # ═══════════════════════════════════════════════
 
 def select_hn_root() -> str:
-    """選擇 Heroes & Generals 遊戲安裝路徑"""
+    """选择 Heroes & Generals 游戏安装路径"""
     cfg = load_config()
     saved = cfg.get("hn_path", "").replace("/", "\\")
 
@@ -292,17 +292,17 @@ def select_hn_root() -> str:
         os.path.isfile(os.path.join(saved, f"{app}.exe"))
         for app in APP_NAMES
     ):
-        print(f"[*] 自動使用上次路徑：{saved}")
-        log_info(f"使用上次路徑: {saved}")
+        print(f"[*] 自动使用上次路径：{saved}")
+        log_info(f"使用上次路径: {saved}")
         return saved
 
-    print("\n[?] 請指定 HnG 遊戲安裝路徑")
+    print("\n[?] 请指定 HnG 游戏安装路径")
     path = ""
     while not path:
-        raw = input("路徑: ").strip().strip("\"'").replace("/", "\\").rstrip("\\")
+        raw = input("路径: ").strip().strip("\"'").replace("/", "\\").rstrip("\\")
         path = raw
         if not path:
-            print("[!] 路徑不得留空")
+            print("[!] 路径不得留空")
             continue
 
         missing = []
@@ -312,19 +312,19 @@ def select_hn_root() -> str:
                 missing.append(app)
 
         if missing:
-            print("[!] 找不到以下檔案：")
+            print("[!] 找不到以下档案：")
             for m in missing:
                 print(f"    - {m}.exe")
-            print("    請確認路徑後再試。\n")
-            retry = input("按 Enter 重試，或輸入 Q 離開: ").strip().upper()
+            print("    请确认路径后再试。\n")
+            retry = input("按 Enter 重试，或输入 Q 离开: ").strip().upper()
             if retry == "Q":
                 sys.exit(0)
             path = ""
         else:
-            print("\n[✓] 已確認以下程式：")
+            print("\n[✓] 已确认以下程式：")
             for app in APP_NAMES:
                 print(f"    {app}.exe")
-            log_info(f"遊戲路徑: {path}")
+            log_info(f"游戏路径: {path}")
             save_config(hn_path=path, last_mode=cfg.get("last_mode", ""))
             return path
 
@@ -332,10 +332,10 @@ def select_hn_root() -> str:
 
 
 # ═══════════════════════════════════════════════
-# 封鎖邏輯
+# 封锁逻辑
 # ═══════════════════════════════════════════════
 
-# 地區碼 → 匹配規則
+# 地区码 → 匹配规则
 REGION_CODES: dict[str, str] = {
     "AS": "AS", "EU": "EU", "NA": "NA", "OC": "OC",
     "HK": "country", "SG": "country", "AU": "OC",
@@ -343,11 +343,11 @@ REGION_CODES: dict[str, str] = {
 
 
 def block_servers() -> None:
-    """自由選擇要封鎖的伺服器（支援編號 + 地區碼組合）"""
+    """自由选择要封锁的服务器（支援编号 + 地区码组合）"""
     region_order = ["AS", "EU", "NA", "OC"]
-    region_labels = {"AS": "亞洲", "EU": "歐洲", "NA": "北美", "OC": "大洋洲"}
+    region_labels = {"AS": "亚洲", "EU": "欧洲", "NA": "北美", "OC": "大洋洲"}
 
-    # 按顯示順序建立 items（地區分組），編號才對得上
+    # 按显示顺序建立 items（地区分组），编号才对得上
     items: list[dict] = []
     for rc in region_order:
         for svr in SERVERS:
@@ -355,7 +355,7 @@ def block_servers() -> None:
                 items.append(svr)
 
     print("\n" + "─" * 60)
-    print("  選擇要封鎖的伺服器：")
+    print("  选择要封锁的服务器：")
     print("─" * 60)
 
     idx = 1
@@ -373,27 +373,27 @@ def block_servers() -> None:
             print(f"  {tag}{idx:>2}: {ip}  ({country})")
             idx += 1
 
-    print(f"\n  輸入編號或地區碼（逗號/空格分隔），A=全選，Enter=返回")
-    print(f"  地區碼: HK(香港) SG(新加坡) AS(全亞洲) EU(歐洲) NA(北美) OC(大洋洲/AU)")
-    print(f"  範例:  2,NA,OC 或 HK,EU 或 1,3,5")
+    print(f"\n  输入编号或地区码（逗号/空格分隔），A=全选，Enter=返回")
+    print(f"  地区码: HK(香港) SG(新加坡) AS(全亚洲) EU(欧洲) NA(北美) OC(大洋洲/AU)")
+    print(f"  范例:  2,NA,OC 或 HK,EU 或 1,3,5")
     raw = input("  >> ").strip()
     if not raw:
         return
 
     selected_indices: set[int] = _parse_region_input(raw, items)
     if not selected_indices:
-        print("[!] 未選擇有效項目")
+        print("[!] 未选择有效项目")
         input("按 Enter 返回...")
         return
 
     selected = [items[i] for i in sorted(selected_indices)]
     total_rules = len(selected) * len(APP_NAMES) * 2
-    print(f"\n[+] 將為 {len(selected)} 個 IP 建立 {total_rules} 條規則")
+    print(f"\n[+] 将为 {len(selected)} 个 IP 建立 {total_rules} 条规则")
 
-    # 先移除所有現有規則，再建立新的
-    print("    -> 正在清除現有規則...")
+    # 先移除所有现有规则，再建立新的
+    print("    -> 正在清除现有规则...")
     removed = remove_all_rules()
-    print(f"    已移除 {removed} 條現有規則\n")
+    print(f"    已移除 {removed} 条现有规则\n")
 
     current = 0
     for item in selected:
@@ -401,21 +401,21 @@ def block_servers() -> None:
 
     print()
     show_current_rules()
-    print(f"\n[✓] {len(selected)} 個 IP 已雙向封鎖（傳入 + 傳出）")
+    print(f"\n[✓] {len(selected)} 个 IP 已双向封锁（传入 + 传出）")
     ips = ", ".join(s["ip"] for s in selected)
-    log_action(f"封鎖 {len(selected)} 個 IP: {ips}")
+    log_action(f"封锁 {len(selected)} 个 IP: {ips}")
     input("按 Enter 返回...")
 
 
 def _parse_region_input(raw: str, items: list[dict]) -> set[int]:
-    """解析使用者輸入：支援編號、地區碼、組合"""
+    """解析使用者输入：支援编号、地区码、组合"""
     selected: set[int] = set()
     if raw.upper() == "A":
         return set(range(len(items)))
 
     for part in raw.replace(",", " ").split():
         t = part.strip().upper()
-        # 數字
+        # 数字
         try:
             n = int(t) - 1
             if 0 <= n < len(items):
@@ -424,7 +424,7 @@ def _parse_region_input(raw: str, items: list[dict]) -> set[int]:
         except ValueError:
             pass
 
-        # 地區碼
+        # 地区码
         if t in ("AS", "EU", "NA", "OC"):
             for i, svr in enumerate(items):
                 if svr.get("region") == t:
@@ -446,19 +446,19 @@ def _parse_region_input(raw: str, items: list[dict]) -> set[int]:
 
 
 def unblock_servers() -> None:
-    """自由選擇要解鎖的防火牆規則"""
+    """自由选择要解锁的防火墙规则"""
     rules = get_rule_lines("HG-")
     if not rules:
-        print("\n目前無任何 HG 規則")
+        print("\n目前无任何 HG 规则")
         input("按 Enter 返回...")
         return
 
     sorted_rules = sorted(rules)
-    print(f"\n目前活躍的 HG 規則（{len(sorted_rules)} 條）:")
+    print(f"\n目前活跃的 HG 规则（{len(sorted_rules)} 条）:")
     for i, name in enumerate(sorted_rules, 1):
         print(f"  [{i:>2}] {name}")
 
-    print(f"\n  輸入編號解鎖（逗號/空格分隔），A=全部刪除，Enter=返回")
+    print(f"\n  输入编号解锁（逗号/空格分隔），A=全部删除，Enter=返回")
     raw = input("  >> ").strip()
     if not raw:
         return
@@ -476,17 +476,17 @@ def unblock_servers() -> None:
                 pass
 
     if not selected_indices:
-        print("[!] 未選擇有效編號")
+        print("[!] 未选择有效编号")
         input("按 Enter 返回...")
         return
 
     to_delete = [sorted_rules[i] for i in sorted(selected_indices)]
-    print(f"\n[+] 正在刪除 {len(to_delete)} 條規則...")
+    print(f"\n[+] 正在删除 {len(to_delete)} 条规则...")
     for i, name in enumerate(to_delete, 1):
         run_netsh(["delete", "rule", f'name={name}'])
-        _show_progress(i, len(to_delete), f"刪除: {name}")
-    print(f"\n[✓] 已刪除 {len(to_delete)} 條規則")
-    log_action(f"解鎖: 刪除 {len(to_delete)} 條規則")
+        _show_progress(i, len(to_delete), f"删除: {name}")
+    print(f"\n[✓] 已删除 {len(to_delete)} 条规则")
+    log_action(f"解锁: 删除 {len(to_delete)} 条规则")
     input("按 Enter 返回...")
 
 
@@ -495,23 +495,23 @@ def unblock_servers() -> None:
 # ═══════════════════════════════════════════════
 
 def write_banner() -> None:
-    """顯示標題畫面"""
+    """显示标题画面"""
     os.system("cls")
     print("╔═══════════════════════════════════════════════╗")
-    print("║       HG 伺服器鎖區工具 v5.0                  ║")
-    print("║       雙向（傳入 + 傳出）封鎖                 ║")
-    print("║       自由組合 — 編號 + 地區碼混合輸入        ║")
+    print("║       HG 服务器锁区工具 v5.0                  ║")
+    print("║       双向（传入 + 传出）封锁                 ║")
+    print("║       自由组合 — 编号 + 地区码混合输入        ║")
     print("╚═══════════════════════════════════════════════╝")
-    print("目標程式：hngsync.exe、HeroesAndGeneralsDesktop.exe")
-    print("封鎖模式：傳入 / 傳出雙向封鎖，全協議，全埠")
+    print("目标程式：hngsync.exe、HeroesAndGeneralsDesktop.exe")
+    print("封锁模式：传入 / 传出双向封锁，全协议，全埠")
     print()
-    print("規則計算說明：")
-    print("  每個 IP × 2 個程式 × 2 方向 = 每 IP 4 條規則")
+    print("规则计算说明：")
+    print("  每个 IP × 2 个程式 × 2 方向 = 每 IP 4 条规则")
     print()
 
 
 def show_ip_distribution() -> None:
-    """顯示 IP 分佈統計"""
+    """显示 IP 分布统计"""
     regions: dict[str, list[str]] = {}
     for svr in SERVERS:
         r = svr.get("region", "??")
@@ -519,10 +519,10 @@ def show_ip_distribution() -> None:
             regions[r] = []
         regions[r].append(f"{svr['ip']} ({svr.get('country', '?')})")
 
-    print("IP 分佈（硬編碼地區）：")
+    print("IP 分布（硬编码地区）：")
     region_labels = {
-        "EU": "歐洲",
-        "AS": "亞洲",
+        "EU": "欧洲",
+        "AS": "亚洲",
         "NA": "北美",
         "OC": "大洋洲",
     }
@@ -531,7 +531,7 @@ def show_ip_distribution() -> None:
             label = region_labels.get(r, r)
             desc = "  ".join(regions[r][:3])
             if len(regions[r]) > 3:
-                desc += f"  ...等 {len(regions[r])} 個"
+                desc += f"  ...等 {len(regions[r])} 个"
             print(f"  {label}（{r}）  {desc}")
     print()
 
@@ -544,47 +544,47 @@ def main() -> None:
     global app_paths
 
     log_init()
-    log_info("使用者授權管理員權限")
+    log_info("使用者授权管理员权限")
 
-    # 檢查管理員權限
+    # 检查管理员权限
     if not is_admin():
-        print("[!] 需要管理員權限，正在請求...")
-        log_info("請求管理員權限")
+        print("[!] 需要管理员权限，正在请求...")
+        log_info("请求管理员权限")
         run_as_admin()
         return
 
     set_console_size()
 
-    # 選擇遊戲路徑
+    # 选择游戏路径
     hn_path = select_hn_root()
     app_paths = {
         app: os.path.join(hn_path, f"{app}.exe")
         for app in APP_NAMES
     }
 
-    # 主選單迴圈
+    # 主选单回圈
     while True:
         write_banner()
         show_ip_distribution()
         print()
         print("操作：")
-        print("  [1] 封鎖伺服器     編號或地區碼（如 HK,NA,OC）")
-        print("  [2] 解鎖伺服器     從封鎖列表中移除規則")
-        print("  [3] 清空所有規則   移除所有 HG 規則")
-        print("  [4] 變更路徑       重新指定 HnG 資料夾")
-        print("  [0] 離開")
+        print("  [1] 封锁服务器     编号或地区码（如 HK,NA,OC）")
+        print("  [2] 解锁服务器     从封锁列表中移除规则")
+        print("  [3] 清空所有规则   移除所有 HG 规则")
+        print("  [4] 变更路径       重新指定 HnG 资料夹")
+        print("  [0] 离开")
 
-        choice = input("\n請選擇 (0-4): ").strip()
+        choice = input("\n请选择 (0-4): ").strip()
 
         if choice == "1":
             block_servers()
         elif choice == "2":
             unblock_servers()
         elif choice == "3":
-            print("\n[+] 正在移除所有防火牆規則...")
+            print("\n[+] 正在移除所有防火墙规则...")
             cnt = remove_all_rules()
-            print(f"\n[✓] 已移除 {cnt} 條規則")
-            log_action("已執行清空所有規則")
+            print(f"\n[✓] 已移除 {cnt} 条规则")
+            log_action("已执行清空所有规则")
             input("按 Enter 返回...")
         elif choice == "4":
             print()
@@ -593,22 +593,22 @@ def main() -> None:
                 app: os.path.join(hn_path, f"{app}.exe")
                 for app in APP_NAMES
             }
-            print("[✓] 路徑已更新")
+            print("[✓] 路径已更新")
         elif choice == "0":
-            print("\n[-] 再見")
+            print("\n[-] 再见")
             break
         else:
-            print("\n[!] 無效選項")
-            input("按 Enter 繼續...")
+            print("\n[!] 无效选项")
+            input("按 Enter 继续...")
 
 
 def set_console_size(cols: int = 90, lines: int = 40) -> None:
-    """設定主控台視窗大小"""
+    """设定主控台视窗大小"""
     try:
         import ctypes
         from ctypes import wintypes
 
-        ctypes.windll.kernel32.SetConsoleTitleW("HG 伺服器鎖區工具 v5.0")
+        ctypes.windll.kernel32.SetConsoleTitleW("HG 服务器锁区工具 v5.0")
         os.system(f"mode con cols={cols} lines={lines}")
 
         h = ctypes.windll.kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE
@@ -624,9 +624,9 @@ if __name__ == "__main__":
     except Exception:
         import traceback
         traceback.print_exc()
-        print("\n[!] 發生未預期的錯誤，請截圖或記錄上方紅色文字。")
-        print("    你也可以檢查 HG_lock.log 中的錯誤日誌。")
-        print("\n按任意鍵離開...")
+        print("\n[!] 发生未预期的错误，请截图或记录上方红色文字。")
+        print("    你也可以检查 HG_lock.log 中的错误日志。")
+        print("\n按任意键离开...")
         try:
             import msvcrt
             msvcrt.getch()
