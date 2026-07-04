@@ -1,6 +1,5 @@
 """
 HG 伺服器鎖區工具 v5.0 (GUI)
-使用 ipinfo.io API 查詢伺服器 IP 地理位置
 透過 Windows 進階防火牆 (netsh advfirewall) 建立雙向封鎖規則
 自由組合模式 — 複選框選擇要封鎖的伺服器
 """
@@ -12,36 +11,30 @@ import os
 import subprocess
 import sys
 import threading
-import time
 from datetime import datetime
-from typing import Optional
-from urllib.error import URLError
-from urllib.request import Request, urlopen
 
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
-# ── 伺服器 IP 清單 ──
+# ── 伺服器 IP 清單（硬編碼地區 — 由維護者預先查好） ──
 SERVERS: list[dict[str, str]] = [
-    {"ip": "139.99.120.230", "region": "AS", "country": "SG-Singapore"},
-    {"ip": "135.136.10.86", "region": "AS", "country": "HK-HongKong"},
-    {"ip": "139.99.149.14", "region": "OC", "country": "AU-Sydney"},
-    {"ip": "144.217.77.9", "region": "NA", "country": "CA-Quebec"},
-    {"ip": "162.213.248.83", "region": "NA", "country": "US-Phoenix"},
-    {"ip": "147.135.214.90", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "147.135.252.98", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "149.202.215.48", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "37.187.226.17", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "51.75.119.5", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "51.77.67.200", "region": "EU", "country": "DE-Frankfurt"},
-    {"ip": "51.83.236.30", "region": "EU", "country": "PL-Warsaw"},
-    {"ip": "51.91.74.237", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "64.42.180.154", "region": "NA", "country": "US-Atlanta"},
+    {"ip": "139.99.120.230", "region": "AS", "country": "SG-Singapore", "short": "SG"},
+    {"ip": "135.136.10.86", "region": "AS", "country": "HK-HongKong", "short": "HK"},
+    {"ip": "139.99.149.14", "region": "OC", "country": "AU-Sydney", "short": "OC"},
+    {"ip": "144.217.77.9", "region": "NA", "country": "CA-Quebec", "short": ""},
+    {"ip": "162.213.248.83", "region": "NA", "country": "US-Phoenix", "short": ""},
+    {"ip": "147.135.214.90", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "147.135.252.98", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "149.202.215.48", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "37.187.226.17", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "51.75.119.5", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "51.77.67.200", "region": "EU", "country": "DE-Frankfurt", "short": ""},
+    {"ip": "51.83.236.30", "region": "EU", "country": "PL-Warsaw", "short": ""},
+    {"ip": "51.91.74.237", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "64.42.180.154", "region": "NA", "country": "US-Atlanta", "short": ""},
 ]
 
 APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
-REQUERY_DAYS = 7  # ipinfo.io 查詢快取天數
-IPINFO_TOKEN: str = ""
 
 
 # ═══════════════════════════════════════════════
@@ -114,30 +107,6 @@ def save_config(hn_path: str = "", last_mode: str = "") -> None:
         pass
 
 
-def _should_requery(cfg: dict) -> bool:
-    """Check if 7 days have passed since last ipinfo query."""
-    last_time = cfg.get("last_query_time", "")
-    if not last_time:
-        return True
-    try:
-        last = datetime.fromisoformat(last_time)
-        return (datetime.now() - last).days >= REQUERY_DAYS
-    except (ValueError, TypeError):
-        return True
-
-
-def _cache_query_result(servers_info: list[dict]) -> None:
-    """Save ipinfo query result + timestamp to config."""
-    cfg = load_config()
-    cfg["last_query_time"] = datetime.now().isoformat()
-    cfg["cached_servers"] = servers_info
-    try:
-        with open(_config_path(), "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
-    except OSError:
-        pass
-
-
 def is_admin() -> bool:
     try:
         import ctypes
@@ -153,20 +122,6 @@ def run_as_admin() -> None:
     ctypes.windll.shell32.ShellExecuteW(
         None, "runas", sys.executable, f'"{script}" {params}', None, 1
     )
-
-
-# ── IP 查詢 ──
-
-def query_ipinfo(ip: str) -> Optional[dict]:
-    url = f"https://ipinfo.io/{ip}/json"
-    if IPINFO_TOKEN:
-        url += f"?token={IPINFO_TOKEN}"
-    try:
-        req = Request(url, headers={"User-Agent": "HG-Lock-Tool/4.0"})
-        with urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read().decode())
-    except (URLError, json.JSONDecodeError, OSError):
-        return None
 
 
 # ── 防火牆操作 ──
@@ -282,7 +237,7 @@ class HGLockerGUI:
                          bg="#f0f0f0", fg="#1a1a2e")
         title.pack(pady=(0, 2))
 
-        subtitle = tk.Label(main, text="雙向封鎖 · IP 自由組合", font=("Segoe UI", 9),
+        subtitle = tk.Label(main, text="雙向封鎖 · 自由組合（勾選要封鎖的伺服器）", font=("Segoe UI", 9),
                             bg="#f0f0f0", fg="#666")
         subtitle.pack(pady=(0, 8))
 
@@ -346,10 +301,6 @@ class HGLockerGUI:
                                 command=self._open_firewall, padx=8, pady=4)
         self.btn_fw.pack(side=tk.LEFT, padx=(0, 4))
 
-        self.btn_requery = tk.Button(bottom, text="🔄 重新查詢", font=("Segoe UI", 10),
-                                     command=self._on_requery, padx=8, pady=4)
-        self.btn_requery.pack(side=tk.LEFT, padx=4)
-
         self.btn_path = tk.Button(bottom, text="📁 變更路徑", font=("Segoe UI", 10),
                                   command=self._on_change_path, padx=8, pady=4)
         self.btn_path.pack(side=tk.LEFT, padx=4)
@@ -360,7 +311,7 @@ class HGLockerGUI:
     def _set_buttons_enabled(self, enabled: bool) -> None:
         state = tk.NORMAL if enabled else tk.DISABLED
         for btn in (self.btn_block, self.btn_unblock, self.btn_clear,
-                     self.btn_requery, self.btn_path, self.btn_fw):
+                     self.btn_path, self.btn_fw):
             btn.configure(state=state)
 
     def _set_busy(self, busy: bool, msg: str = "") -> None:
@@ -368,7 +319,6 @@ class HGLockerGUI:
         state = tk.DISABLED if busy else tk.NORMAL
         for btn in (self.btn_block, self.btn_unblock, self.btn_clear):
             btn.configure(state=state)
-        self.btn_requery.configure(state=state)
         self.btn_path.configure(state=state)
         self.lbl_busy.configure(text=msg)
         self.root.update_idletasks()
@@ -390,6 +340,34 @@ class HGLockerGUI:
             else:
                 self.ip_labels[r].configure(text="—", fg="#888")
 
+    # ─── 複選框重建（支援地區碼分組） ───
+
+    def _populate_servers(self) -> None:
+        """根據 self.servers_info 重建伺服器複選框"""
+        for w in self.srv_frame.winfo_children():
+            w.destroy()
+        self.server_checkboxes.clear()
+
+        region_order = ["AS", "EU", "NA", "OC"]
+        for rc in region_order:
+            region_servers = [s for s in self.servers_info if s.get("region") == rc]
+            if not region_servers:
+                continue
+            label = self.REGION_LABELS.get(rc, rc)
+            hdr = tk.Label(self.srv_frame, text=f"  {label}（{rc}）:",
+                           font=("Segoe UI", 9, "bold"), anchor="w", bg="#f0f0f0")
+            hdr.pack(fill=tk.X, pady=(4, 0))
+            for svr in region_servers:
+                var = tk.BooleanVar(value=False)
+                ip = svr["ip"]
+                country = svr.get("country", "?")
+                short = svr.get("short", "")
+                tag = f" [{short}]" if short else "    "
+                cb = ttk.Checkbutton(self.srv_frame, text=f"{tag} {ip}  ({country})",
+                                     variable=var)
+                cb.pack(anchor="w", padx=(24, 0))
+                self.server_checkboxes.append((cb, var, svr))
+
     # ─── 初始化 ───
 
     def _init_session(self) -> None:
@@ -400,42 +378,9 @@ class HGLockerGUI:
         # 背景執行初始化
         def task() -> None:
             try:
-                # 1. 載入或查詢 IP 資訊（自動判斷 7 天快取）
-                cfg = load_config()
-                if not _should_requery(cfg) and "cached_servers" in cfg:
-                    cached = cfg["cached_servers"]
-                    self.servers_info = cached
-                    last_time = cfg.get("last_query_time", "?")[:10]
-                    log_info(f"使用快取 IP 資料（查詢時間: {cfg.get('last_query_time', '?')}）")
-                    self.root.after(0, lambda t=last_time: self.lbl_busy.configure(
-                        text=f"使用快取 IP 資料（{t}）"))
-                else:
-                    self.root.after(0, lambda: self.lbl_busy.configure(
-                        text="正在查詢伺服器 IP…"))
-                    log_info("初始化：查詢 IP 資訊")
-                    self.servers_info = []
-                    total = len(SERVERS)
-                    for i, svr in enumerate(SERVERS, 1):
-                        ip = svr["ip"]
-                        info = query_ipinfo(ip)
-                        if info:
-                            self.servers_info.append({
-                                "ip": ip,
-                                "country": info.get("country", ""),
-                                "region": info.get("region", ""),
-                                "city": info.get("city", ""),
-                                "org": info.get("org", ""),
-                                "loc": info.get("loc", ""),
-                            })
-                            log_info(f"{ip} -> {info.get('country','')}/{info.get('region','')}")
-                        else:
-                            self.servers_info.append({**svr, "city": "", "org": "", "loc": ""})
-                            log_info(f"{ip} 查詢失敗，使用預設: {svr['country']}")
-                        if i < total:
-                            time.sleep(0.3)
-
-                    # 快取結果
-                    _cache_query_result(self.servers_info)
+                # 1. 使用硬編碼的伺服器資料
+                self.servers_info = list(SERVERS)
+                log_info(f"使用硬編碼伺服器資料（{len(self.servers_info)} 個 IP）")
 
                 # 2. 更新 IP 顯示
                 self.root.after(0, self._show_ip_distribution)
@@ -503,33 +448,6 @@ class HGLockerGUI:
         self.lbl_busy.configure(text="路徑已設定")
 
     # ─── 操作處理 ───
-
-    def _populate_servers(self) -> None:
-        """根據 self.servers_info 重建伺服器複選框"""
-        # 清除舊內容
-        for w in self.srv_frame.winfo_children():
-            w.destroy()
-        self.server_checkboxes.clear()
-
-        region_order = ["AS", "EU", "NA", "OC"]
-        for rc in region_order:
-            region_servers = [s for s in self.servers_info if s.get("region") == rc]
-            if not region_servers:
-                continue
-            # 區域標題
-            label = self.REGION_LABELS.get(rc, rc)
-            hdr = tk.Label(self.srv_frame, text=f"  {label}（{rc}）:",
-                           font=("Segoe UI", 9, "bold"), anchor="w", bg="#f0f0f0")
-            hdr.pack(fill=tk.X, pady=(4, 0))
-            # 該區域的每個伺服器
-            for svr in region_servers:
-                var = tk.BooleanVar(value=False)
-                ip = svr["ip"]
-                country = svr.get("country", "?")
-                cb = ttk.Checkbutton(self.srv_frame, text=f"{ip}  ({country})",
-                                     variable=var)
-                cb.pack(anchor="w", padx=(24, 0))
-                self.server_checkboxes.append((cb, var, svr))
 
     def _on_block(self) -> None:
         if self.is_busy:
@@ -633,48 +551,6 @@ class HGLockerGUI:
             except Exception as e:
                 log_error(f"清除失敗: {e}")
                 self.root.after(0, lambda err=e: messagebox.showerror("錯誤", f"清除失敗：{err}"))
-            finally:
-                self.root.after(0, lambda: self._set_busy(False, "就緒"))
-
-        threading.Thread(target=task, daemon=True).start()
-
-    def _on_requery(self) -> None:
-        if self.is_busy:
-            return
-        self._set_busy(True, "正在重新查詢 IP…")
-
-        def task() -> None:
-            try:
-                new_info = []
-                total = len(SERVERS)
-                for i, svr in enumerate(SERVERS, 1):
-                    ip = svr["ip"]
-                    self.root.after(0, lambda m=f"查詢 {i}/{total} {ip}…":
-                                    self.lbl_busy.configure(text=m))
-                    info = query_ipinfo(ip)
-                    if info:
-                        new_info.append({
-                            "ip": ip,
-                            "country": info.get("country", ""),
-                            "region": info.get("region", ""),
-                            "city": info.get("city", ""),
-                            "org": info.get("org", ""),
-                            "loc": info.get("loc", ""),
-                        })
-                        log_info(f"[重新查詢] {ip} -> {info.get('country','')}/{info.get('region','')}")
-                    else:
-                        new_info.append({**svr, "city": "", "org": "", "loc": ""})
-                    if i < total:
-                        time.sleep(0.3)
-
-                self.servers_info = new_info
-                _cache_query_result(new_info)
-                self.root.after(0, self._show_ip_distribution)
-                log_action("重新查詢完成")
-                self.root.after(0, lambda: messagebox.showinfo("完成", "IP 查詢已完成"))
-            except Exception as e:
-                log_error(f"重新查詢失敗: {e}")
-                self.root.after(0, lambda err=e: messagebox.showerror("錯誤", f"查詢失敗：{err}"))
             finally:
                 self.root.after(0, lambda: self._set_busy(False, "就緒"))
 

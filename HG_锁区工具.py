@@ -1,8 +1,7 @@
 """
 HG 伺服器鎖區工具 v5.0
-使用 ipinfo.io API 查詢伺服器 IP 地理位置
 透過 Windows 進階防火牆 (netsh advfirewall) 建立雙向封鎖規則
-自由組合模式 — 自行選擇要封鎖/解鎖的伺服器
+自由組合模式 — 自行選擇要封鎖/解鎖的伺服器（支援地區碼）
 """
 
 from __future__ import annotations
@@ -11,33 +10,28 @@ import json
 import os
 import subprocess
 import sys
-import time
 from datetime import datetime
-from typing import Dict, List, Optional
-from urllib.request import urlopen, Request
-from urllib.error import URLError
 
-# ── 伺服器 IP 清單（合併舊版程式 + 實際 Ping 測試結果） ──
+
+# ── 伺服器 IP 清單（硬編碼地區 — 由維護者預先查好） ──
 SERVERS: list[dict[str, str]] = [
-    {"ip": "139.99.120.230", "region": "AS", "country": "SG-Singapore"},
-    {"ip": "135.136.10.86", "region": "AS", "country": "HK-HongKong"},
-    {"ip": "139.99.149.14", "region": "OC", "country": "AU-Sydney"},
-    {"ip": "144.217.77.9", "region": "NA", "country": "CA-Quebec"},
-    {"ip": "162.213.248.83", "region": "NA", "country": "US-Phoenix"},
-    {"ip": "147.135.214.90", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "147.135.252.98", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "149.202.215.48", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "37.187.226.17", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "51.75.119.5", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "51.77.67.200", "region": "EU", "country": "DE-Frankfurt"},
-    {"ip": "51.83.236.30", "region": "EU", "country": "PL-Warsaw"},
-    {"ip": "51.91.74.237", "region": "EU", "country": "FR-Dunkirk"},
-    {"ip": "64.42.180.154", "region": "NA", "country": "US-Atlanta"},
+    {"ip": "139.99.120.230", "region": "AS", "country": "SG-Singapore", "short": "SG"},
+    {"ip": "135.136.10.86", "region": "AS", "country": "HK-HongKong", "short": "HK"},
+    {"ip": "139.99.149.14", "region": "OC", "country": "AU-Sydney", "short": "OC"},
+    {"ip": "144.217.77.9", "region": "NA", "country": "CA-Quebec", "short": ""},
+    {"ip": "162.213.248.83", "region": "NA", "country": "US-Phoenix", "short": ""},
+    {"ip": "147.135.214.90", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "147.135.252.98", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "149.202.215.48", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "37.187.226.17", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "51.75.119.5", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "51.77.67.200", "region": "EU", "country": "DE-Frankfurt", "short": ""},
+    {"ip": "51.83.236.30", "region": "EU", "country": "PL-Warsaw", "short": ""},
+    {"ip": "51.91.74.237", "region": "EU", "country": "FR-Dunkirk", "short": ""},
+    {"ip": "64.42.180.154", "region": "NA", "country": "US-Atlanta", "short": ""},
 ]
 
 APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
-
-REQUERY_DAYS = 7  # ipinfo.io 查詢快取天數
 
 # ── 全域狀態 ──
 LOG_FILE: str = ""
@@ -124,46 +118,6 @@ def save_config(hn_path: str = "", last_mode: str = "") -> None:
         pass
 
 
-def _should_requery(cfg: dict) -> bool:
-    """Check if 7 days have passed since last ipinfo query — if so, re-query."""
-    last_time = cfg.get("last_query_time", "")
-    if not last_time:
-        return True
-    try:
-        last = datetime.fromisoformat(last_time)
-        return (datetime.now() - last).days >= REQUERY_DAYS
-    except (ValueError, TypeError):
-        return True
-
-
-def _cache_query_result(servers_info: list[dict]) -> None:
-    """Save ipinfo query result + timestamp to config."""
-    cfg = load_config()
-    cfg["last_query_time"] = datetime.now().isoformat()
-    cfg["cached_servers"] = servers_info
-    try:
-        with open(_config_path(), "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
-    except OSError:
-        pass
-
-
-def _load_or_query_servers() -> list[dict]:
-    """Load cached servers if <7 days old, otherwise query ipinfo.io."""
-    cfg = load_config()
-    if not _should_requery(cfg) and "cached_servers" in cfg:
-        cached = cfg["cached_servers"]
-        last_time = cfg.get("last_query_time", "?")[:10]
-        print(f"\n[+] 使用快取 IP 資料（{last_time}，{REQUERY_DAYS} 天內有效）")
-        print(f"    共 {len(cached)} 個伺服器")
-        log_info(f"使用快取 IP 資料（查詢時間: {cfg.get('last_query_time', '?')}）")
-        return cached
-    # 需要重新查詢
-    result = update_server_info()
-    _cache_query_result(result)
-    return result
-
-
 # ═══════════════════════════════════════════════
 # 管理員權限
 # ═══════════════════════════════════════════════
@@ -185,64 +139,6 @@ def run_as_admin() -> None:
     ctypes.windll.shell32.ShellExecuteW(
         None, "runas", sys.executable, f'"{script}" {params}', None, 1
     )
-
-
-# ═══════════════════════════════════════════════
-# ipinfo.io IP 查詢
-# ═══════════════════════════════════════════════
-
-IPINFO_TOKEN = ""  # 可選：填入 ipinfo.io access token 以提升配額
-
-def query_ipinfo(ip: str) -> Optional[dict]:
-    """透過 ipinfo.io 查詢 IP 地理位置"""
-    url = f"https://ipinfo.io/{ip}/json"
-    if IPINFO_TOKEN:
-        url += f"?token={IPINFO_TOKEN}"
-    try:
-        req = Request(url, headers={"User-Agent": "HG-Lock-Tool/3.0"})
-        with urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read().decode())
-    except URLError as e:
-        log_error(f"IPInfo 查詢失敗 {ip}: {e}")
-        return None
-    except json.JSONDecodeError:
-        log_error(f"IPInfo 回覆解析失敗 {ip}")
-        return None
-
-
-def update_server_info() -> list[dict]:
-    """查詢所有伺服器 IP 的地理資訊，回傳更新後的清單"""
-    print("\n[+] 正在透過 ipinfo.io 查詢伺服器位置...\n")
-    updated = []
-    total = len(SERVERS)
-    for i, svr in enumerate(SERVERS, 1):
-        ip = svr["ip"]
-        print(f"  [{i}/{total}] {ip}... ", end="", flush=True)
-        info = query_ipinfo(ip)
-        if info:
-            country = info.get("country", "")
-            region = info.get("region", "")
-            city = info.get("city", "")
-            org = info.get("org", "")
-            loc = info.get("loc", "")
-            print(f"✓ {country} / {region} / {city}")
-            log_info(f"{ip} -> {country}/{region}/{city} ({org})")
-            updated.append({
-                "ip": ip,
-                "country": country,
-                "region": region,
-                "city": city,
-                "org": org,
-                "loc": loc,
-            })
-        else:
-            # 查詢失敗則使用預設資料
-            print(f"→ 使用預設 ({svr['country']})")
-            log_info(f"{ip} 查詢失敗，使用預設: {svr['country']}")
-            updated.append({**svr, "city": "", "org": "", "loc": ""})
-        if i < total:
-            time.sleep(0.3)  # 避免 API 限流
-    return updated
 
 
 # ═══════════════════════════════════════════════
@@ -439,61 +335,48 @@ def select_hn_root() -> str:
 # 封鎖邏輯
 # ═══════════════════════════════════════════════
 
-def block_servers() -> None:
-    """自由選擇要封鎖的伺服器 IP"""
-    global servers_info
-    if not servers_info:
-        print("[!] 伺服器資訊尚未載入")
-        input("按 Enter 返回...")
-        return
+# 地區碼 → 匹配規則
+REGION_CODES: dict[str, str] = {
+    "AS": "AS", "EU": "EU", "NA": "NA", "OC": "OC",
+    "HK": "country", "SG": "country", "AU": "OC",
+}
 
-    # 建立編號清單
-    items: list[dict] = []
-    idx = 1
+
+def block_servers() -> None:
+    """自由選擇要封鎖的伺服器（支援編號 + 地區碼組合）"""
+    items = list(SERVERS)
     region_order = ["AS", "EU", "NA", "OC"]
     region_labels = {"AS": "亞洲", "EU": "歐洲", "NA": "北美", "OC": "大洋洲"}
 
-    print("\n" + "─" * 56)
+    print("\n" + "─" * 60)
     print("  選擇要封鎖的伺服器：")
-    print("─" * 56)
+    print("─" * 60)
 
+    idx = 1
     for rc in region_order:
-        region_servers = [s for s in servers_info if s.get("region") == rc]
-        if not region_servers:
+        r_servers = [s for s in items if s.get("region") == rc]
+        if not r_servers:
             continue
         label = region_labels.get(rc, rc)
         print(f"\n  {label}（{rc}）:")
-        for svr in region_servers:
+        for svr in r_servers:
             ip = svr["ip"]
             country = svr.get("country", "?")
-            print(f"    [{idx:>2}] {ip}  ({country})")
-            items.append(svr)
+            short = svr.get("short", "")
+            tag = f"[{short:>2}] " if short else "     "
+            print(f"  {tag}{idx:>2}: {ip}  ({country})")
             idx += 1
 
-    if not items:
-        print("[!] 無可用伺服器")
-        input("按 Enter 返回...")
-        return
-
-    print(f"\n  輸入編號封鎖（逗號/空格分隔），A=全選，Enter=返回")
+    print(f"\n  輸入編號或地區碼（逗號/空格分隔），A=全選，Enter=返回")
+    print(f"  地區碼: HK(香港) SG(新加坡) AS(全亞洲) EU(歐洲) NA(北美) OC(大洋洲/AU)")
+    print(f"  範例:  2,NA,OC 或 HK,EU 或 1,3,5")
     raw = input("  >> ").strip()
     if not raw:
         return
 
-    selected_indices: set[int] = set()
-    if raw.upper() == "A":
-        selected_indices = set(range(len(items)))
-    else:
-        for part in raw.replace(",", " ").split():
-            try:
-                n = int(part.strip()) - 1
-                if 0 <= n < len(items):
-                    selected_indices.add(n)
-            except ValueError:
-                pass
-
+    selected_indices: set[int] = _parse_region_input(raw, items)
     if not selected_indices:
-        print("[!] 未選擇有效編號")
+        print("[!] 未選擇有效項目")
         input("按 Enter 返回...")
         return
 
@@ -511,6 +394,44 @@ def block_servers() -> None:
     ips = ", ".join(s["ip"] for s in selected)
     log_action(f"封鎖 {len(selected)} 個 IP: {ips}")
     input("按 Enter 返回...")
+
+
+def _parse_region_input(raw: str, items: list[dict]) -> set[int]:
+    """解析使用者輸入：支援編號、地區碼、組合"""
+    selected: set[int] = set()
+    if raw.upper() == "A":
+        return set(range(len(items)))
+
+    for part in raw.replace(",", " ").split():
+        t = part.strip().upper()
+        # 數字
+        try:
+            n = int(t) - 1
+            if 0 <= n < len(items):
+                selected.add(n)
+            continue
+        except ValueError:
+            pass
+
+        # 地區碼
+        if t in ("AS", "EU", "NA", "OC"):
+            for i, svr in enumerate(items):
+                if svr.get("region") == t:
+                    selected.add(i)
+        elif t == "HK":
+            for i, svr in enumerate(items):
+                if svr.get("country", "").startswith("HK"):
+                    selected.add(i)
+        elif t == "SG":
+            for i, svr in enumerate(items):
+                if svr.get("country", "").startswith("SG"):
+                    selected.add(i)
+        elif t in ("AU",):
+            for i, svr in enumerate(items):
+                if svr.get("region") == "OC":
+                    selected.add(i)
+
+    return selected
 
 
 def unblock_servers() -> None:
@@ -567,8 +488,8 @@ def write_banner() -> None:
     os.system("cls")
     print("╔═══════════════════════════════════════════════╗")
     print("║       HG 伺服器鎖區工具 v5.0                  ║")
-    print("║       雙向（傳入 + 傳出）封鎖 · ipinfo.io     ║")
-    print("║       自由組合模式 — 自行選擇封鎖 IP         ║")
+    print("║       雙向（傳入 + 傳出）封鎖                 ║")
+    print("║       自由組合 — 編號 + 地區碼混合輸入        ║")
     print("╚═══════════════════════════════════════════════╝")
     print("目標程式：hngsync.exe、HeroesAndGeneralsDesktop.exe")
     print("封鎖模式：傳入 / 傳出雙向封鎖，全協議，全埠")
@@ -581,13 +502,13 @@ def write_banner() -> None:
 def show_ip_distribution() -> None:
     """顯示 IP 分佈統計"""
     regions: dict[str, list[str]] = {}
-    for svr in servers_info:
+    for svr in SERVERS:
         r = svr.get("region", "??")
         if r not in regions:
             regions[r] = []
         regions[r].append(f"{svr['ip']} ({svr.get('country', '?')})")
 
-    print("IP 分佈（ipinfo.io 查詢結果）：")
+    print("IP 分佈（硬編碼地區）：")
     region_labels = {
         "EU": "歐洲",
         "AS": "亞洲",
@@ -604,15 +525,12 @@ def show_ip_distribution() -> None:
     print()
 
 
-servers_info: list[dict] = []
-
-
 # ═══════════════════════════════════════════════
 # 主程式
 # ═══════════════════════════════════════════════
 
 def main() -> None:
-    global servers_info, app_paths
+    global app_paths
 
     log_init()
     log_info("使用者授權管理員權限")
@@ -625,11 +543,6 @@ def main() -> None:
         return
 
     set_console_size()
-
-    # 載入或查詢 IP 資訊（自動判斷 7 天快取）
-    servers_info = _load_or_query_servers()
-    print("\n按 Enter 繼續...")
-    input()
 
     # 選擇遊戲路徑
     hn_path = select_hn_root()
@@ -644,14 +557,13 @@ def main() -> None:
         show_ip_distribution()
         print()
         print("操作：")
-        print("  [1] 封鎖伺服器     選擇要封鎖的 IP（自由組合）")
+        print("  [1] 封鎖伺服器     編號或地區碼（如 HK,NA,OC）")
         print("  [2] 解鎖伺服器     從封鎖列表中移除規則")
         print("  [3] 清空所有規則   移除所有 HG 規則")
-        print("  [4] 重新查詢       重新查詢 IP 位置")
-        print("  [5] 變更路徑       重新指定 HnG 資料夾")
+        print("  [4] 變更路徑       重新指定 HnG 資料夾")
         print("  [0] 離開")
 
-        choice = input("\n請選擇 (0-5): ").strip()
+        choice = input("\n請選擇 (0-4): ").strip()
 
         if choice == "1":
             block_servers()
@@ -664,11 +576,6 @@ def main() -> None:
             log_action("已執行清空所有規則")
             input("按 Enter 返回...")
         elif choice == "4":
-            servers_info = update_server_info()
-            _cache_query_result(servers_info)
-            print("\n按 Enter 繼續...")
-            input()
-        elif choice == "5":
             print()
             hn_path = select_hn_root()
             app_paths = {
