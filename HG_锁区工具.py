@@ -344,9 +344,15 @@ REGION_CODES: dict[str, str] = {
 
 def block_servers() -> None:
     """自由選擇要封鎖的伺服器（支援編號 + 地區碼組合）"""
-    items = list(SERVERS)
     region_order = ["AS", "EU", "NA", "OC"]
     region_labels = {"AS": "亞洲", "EU": "歐洲", "NA": "北美", "OC": "大洋洲"}
+
+    # 按顯示順序建立 items（地區分組），編號才對得上
+    items: list[dict] = []
+    for rc in region_order:
+        for svr in SERVERS:
+            if svr.get("region") == rc:
+                items.append(svr)
 
     print("\n" + "─" * 60)
     print("  選擇要封鎖的伺服器：")
