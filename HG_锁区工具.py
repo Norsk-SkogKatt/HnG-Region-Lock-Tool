@@ -1,9 +1,8 @@
 """
-HG 伺服器鎖區工具 v3.0
+HG 伺服器鎖區工具 v5.0
 使用 ipinfo.io API 查詢伺服器 IP 地理位置
 透過 Windows 進階防火牆 (netsh advfirewall) 建立雙向封鎖規則
-
-靈感來自 HG 伺服器鎖定 v2.x 系列
+自由組合模式 — 自行選擇要封鎖/解鎖的伺服器
 """
 
 from __future__ import annotations
@@ -13,9 +12,7 @@ import os
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, List, Optional
 from urllib.request import urlopen, Request
 from urllib.error import URLError
@@ -42,8 +39,6 @@ APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
 
 REQUERY_DAYS = 7  # ipinfo.io 查詢快取天數
 
-VALID_MODES: list[str] = ["AS-EU Only", "EU Only", "AS Only", "HK Only", "SG+EU Only", "無"]
-
 # ── 全域狀態 ──
 LOG_FILE: str = ""
 CONFIG_FILE: str = ""
@@ -68,7 +63,7 @@ def log_init() -> None:
     LOG_FILE = os.path.join(base, "HG_lock.log")
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"\n{'='*60}\n")
-        f.write(f"=== HG 鎖區工具 v3.0 - {datetime.now():%Y-%m-%d %H:%M:%S} ===\n")
+        f.write(f"=== HG 鎖區工具 v5.0 - {datetime.now():%Y-%m-%d %H:%M:%S} ===\n")
         f.write(f"{'='*60}\n")
 
 
@@ -444,36 +439,123 @@ def select_hn_root() -> str:
 # 封鎖邏輯
 # ═══════════════════════════════════════════════
 
-def invoke_block(label: str, filter_func) -> None:
-    """執行封鎖操作
+def block_servers() -> None:
+    """自由選擇要封鎖的伺服器 IP"""
+    global servers_info
+    if not servers_info:
+        print("[!] 伺服器資訊尚未載入")
+        input("按 Enter 返回...")
+        return
 
-    Args:
-        label: 操作名稱（用於顯示和記錄）
-        filter_func: 過濾函式，接收 server dict，回傳 True 表示「此 IP 應被封鎖」
-    """
-    global app_paths
-    print(f"\n[+] {label}...")
+    # 建立編號清單
+    items: list[dict] = []
+    idx = 1
+    region_order = ["AS", "EU", "NA", "OC"]
+    region_labels = {"AS": "亞洲", "EU": "歐洲", "NA": "北美", "OC": "大洋洲"}
 
-    # 清除舊規則
-    remove_all_rules()
-    time.sleep(0.5)
+    print("\n" + "─" * 56)
+    print("  選擇要封鎖的伺服器：")
+    print("─" * 56)
 
-    # 過濾出要封鎖的 IP
-    block_list = [x for x in servers_info if filter_func(x)]
-    total = len(block_list) * len(APP_NAMES) * 2  # IN + OUT per app
+    for rc in region_order:
+        region_servers = [s for s in servers_info if s.get("region") == rc]
+        if not region_servers:
+            continue
+        label = region_labels.get(rc, rc)
+        print(f"\n  {label}（{rc}）:")
+        for svr in region_servers:
+            ip = svr["ip"]
+            country = svr.get("country", "?")
+            print(f"    [{idx:>2}] {ip}  ({country})")
+            items.append(svr)
+            idx += 1
 
-    print(f"    共 {len(block_list)} 個 IP，將建立 {total} 條規則\n")
+    if not items:
+        print("[!] 無可用伺服器")
+        input("按 Enter 返回...")
+        return
+
+    print(f"\n  輸入編號封鎖（逗號/空格分隔），A=全選，Enter=返回")
+    raw = input("  >> ").strip()
+    if not raw:
+        return
+
+    selected_indices: set[int] = set()
+    if raw.upper() == "A":
+        selected_indices = set(range(len(items)))
+    else:
+        for part in raw.replace(",", " ").split():
+            try:
+                n = int(part.strip()) - 1
+                if 0 <= n < len(items):
+                    selected_indices.add(n)
+            except ValueError:
+                pass
+
+    if not selected_indices:
+        print("[!] 未選擇有效編號")
+        input("按 Enter 返回...")
+        return
+
+    selected = [items[i] for i in sorted(selected_indices)]
+    total_rules = len(selected) * len(APP_NAMES) * 2
+    print(f"\n[+] 將為 {len(selected)} 個 IP 建立 {total_rules} 條規則\n")
 
     current = 0
-    for item in block_list:
-        current = add_block_rules(
-            item["ip"], item["country"], total, current
-        )
+    for item in selected:
+        current = add_block_rules(item["ip"], item["country"], total_rules, current)
 
     print()
     show_current_rules()
-    print(f"\n[✓] {len(block_list)} 個 IP 已雙向封鎖（傳入 + 傳出）")
-    log_action(f"{label}：{len(block_list)} 個 IP 已雙向封鎖")
+    print(f"\n[✓] {len(selected)} 個 IP 已雙向封鎖（傳入 + 傳出）")
+    ips = ", ".join(s["ip"] for s in selected)
+    log_action(f"封鎖 {len(selected)} 個 IP: {ips}")
+    input("按 Enter 返回...")
+
+
+def unblock_servers() -> None:
+    """自由選擇要解鎖的防火牆規則"""
+    rules = get_rule_lines("HG-")
+    if not rules:
+        print("\n目前無任何 HG 規則")
+        input("按 Enter 返回...")
+        return
+
+    sorted_rules = sorted(rules)
+    print(f"\n目前活躍的 HG 規則（{len(sorted_rules)} 條）:")
+    for i, name in enumerate(sorted_rules, 1):
+        print(f"  [{i:>2}] {name}")
+
+    print(f"\n  輸入編號解鎖（逗號/空格分隔），A=全部刪除，Enter=返回")
+    raw = input("  >> ").strip()
+    if not raw:
+        return
+
+    selected_indices: set[int] = set()
+    if raw.upper() == "A":
+        selected_indices = set(range(len(sorted_rules)))
+    else:
+        for part in raw.replace(",", " ").split():
+            try:
+                n = int(part.strip()) - 1
+                if 0 <= n < len(sorted_rules):
+                    selected_indices.add(n)
+            except ValueError:
+                pass
+
+    if not selected_indices:
+        print("[!] 未選擇有效編號")
+        input("按 Enter 返回...")
+        return
+
+    to_delete = [sorted_rules[i] for i in sorted(selected_indices)]
+    print(f"\n[+] 正在刪除 {len(to_delete)} 條規則...")
+    for i, name in enumerate(to_delete, 1):
+        run_netsh(["delete", "rule", f'name={name}'])
+        _show_progress(i, len(to_delete), f"刪除: {name}")
+    print(f"\n[✓] 已刪除 {len(to_delete)} 條規則")
+    log_action(f"解鎖: 刪除 {len(to_delete)} 條規則")
+    input("按 Enter 返回...")
 
 
 # ═══════════════════════════════════════════════
@@ -484,8 +566,9 @@ def write_banner() -> None:
     """顯示標題畫面"""
     os.system("cls")
     print("╔═══════════════════════════════════════════════╗")
-    print("║       HG 伺服器鎖區工具 v3.0                  ║")
+    print("║       HG 伺服器鎖區工具 v5.0                  ║")
     print("║       雙向（傳入 + 傳出）封鎖 · ipinfo.io     ║")
+    print("║       自由組合模式 — 自行選擇封鎖 IP         ║")
     print("╚═══════════════════════════════════════════════╝")
     print("目標程式：hngsync.exe、HeroesAndGeneralsDesktop.exe")
     print("封鎖模式：傳入 / 傳出雙向封鎖，全協議，全埠")
@@ -557,65 +640,35 @@ def main() -> None:
 
     # 主選單迴圈
     while True:
-        cfg = load_config()
-        saved_mode = cfg.get("last_mode", "")
-        if saved_mode not in VALID_MODES:
-            saved_mode = ""
-
         write_banner()
         show_ip_distribution()
-
-        # 顯示上次使用的模式
-        print(f"  上次使用：{saved_mode}" if saved_mode else "  上次使用：—")
         print()
-
         print("操作：")
-        print(f"  [1] AS-EU Only   只留亞洲 + 歐洲，封鎖北美 + 大洋洲")
-        print("  [2] EU Only      封鎖歐洲以外所有 IP")
-        print("  [3] AS Only      封鎖亞洲以外所有 IP")
-        print("  [4] HK Only      僅連接香港，封鎖其餘所有 IP")
-        print("  [5] SG+EU Only   僅留新加坡+歐洲，封鎖港澳美")
-        print("  [6] Clear        移除所有 HG 防火牆規則")
-        print("  [7] 重新查詢     重新透過 ipinfo.io 查詢 IP 位置")
-        print("  [8] 變更路徑     重新指定 HnG 資料夾")
+        print("  [1] 封鎖伺服器     選擇要封鎖的 IP（自由組合）")
+        print("  [2] 解鎖伺服器     從封鎖列表中移除規則")
+        print("  [3] 清空所有規則   移除所有 HG 規則")
+        print("  [4] 重新查詢       重新查詢 IP 位置")
+        print("  [5] 變更路徑       重新指定 HnG 資料夾")
         print("  [0] 離開")
-        choice = input("\n請選擇 (0-8): ").strip()
+
+        choice = input("\n請選擇 (0-5): ").strip()
 
         if choice == "1":
-            invoke_block("僅連亞歐", lambda x: x.get("region") in ("NA", "OC"))
-            save_config(hn_path, "AS-EU Only")
+            block_servers()
         elif choice == "2":
-            invoke_block("僅連歐洲", lambda x: x.get("region") != "EU")
-            save_config(hn_path, "EU Only")
+            unblock_servers()
         elif choice == "3":
-            invoke_block("僅連亞洲", lambda x: x.get("region") != "AS")
-            save_config(hn_path, "AS Only")
+            print("\n[+] 正在移除所有防火牆規則...")
+            cnt = remove_all_rules()
+            print(f"\n[✓] 已移除 {cnt} 條規則")
+            log_action("已執行清空所有規則")
+            input("按 Enter 返回...")
         elif choice == "4":
-            hk_ip = next(
-                (s["ip"] for s in servers_info if s.get("region") == "AS"
-                 and "HK" in s.get("country", "").upper()),
-                "135.136.10.86",
-            )
-            invoke_block("僅連香港", lambda x: x["ip"] != hk_ip)
-            save_config(hn_path, "HK Only")
-        elif choice == "5":
-            invoke_block("僅連星歐", lambda x: x.get("region") in ("NA", "OC")
-                         or (x.get("region") == "AS" and "HK" in x.get("country", "").upper()))
-            save_config(hn_path, "SG+EU Only")
-        elif choice == "6":
-            print("\n[+] 正在移除防火牆規則...")
-            remove_all_rules()
-            print()
-            show_current_rules()
-            print("\n[✓] 完成")
-            log_action("已執行 Clear，所有 HG 規則已清除")
-            save_config(hn_path, "無")
-        elif choice == "7":
             servers_info = update_server_info()
             _cache_query_result(servers_info)
             print("\n按 Enter 繼續...")
             input()
-        elif choice == "8":
+        elif choice == "5":
             print()
             hn_path = select_hn_root()
             app_paths = {
@@ -637,7 +690,7 @@ def set_console_size(cols: int = 90, lines: int = 40) -> None:
         import ctypes
         from ctypes import wintypes
 
-        ctypes.windll.kernel32.SetConsoleTitleW("HG 伺服器鎖區工具 v3.0")
+        ctypes.windll.kernel32.SetConsoleTitleW("HG 伺服器鎖區工具 v5.0")
         os.system(f"mode con cols={cols} lines={lines}")
 
         h = ctypes.windll.kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE

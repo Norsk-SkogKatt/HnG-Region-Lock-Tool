@@ -1,8 +1,8 @@
 """
-HG 伺服器鎖區工具 v4.0 (GUI)
+HG 伺服器鎖區工具 v5.0 (GUI)
 使用 ipinfo.io API 查詢伺服器 IP 地理位置
 透過 Windows 進階防火牆 (netsh advfirewall) 建立雙向封鎖規則
-GUI 介面：大按鈕操作，靜默執行，一鍵開啟防火牆檢查
+自由組合模式 — 複選框選擇要封鎖的伺服器
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ import sys
 import threading
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -43,8 +42,6 @@ SERVERS: list[dict[str, str]] = [
 APP_NAMES: list[str] = ["hngsync", "HeroesAndGeneralsDesktop"]
 REQUERY_DAYS = 7  # ipinfo.io 查詢快取天數
 IPINFO_TOKEN: str = ""
-
-VALID_MODES: list[str] = ["AS-EU Only", "EU Only", "AS Only", "HK Only", "SG+EU Only", "無"]
 
 
 # ═══════════════════════════════════════════════
@@ -254,19 +251,11 @@ app_paths_global: dict[str, str] = {}
 class HGLockerGUI:
     """HG 伺服器鎖區工具 GUI 版"""
 
-    MODE_NAMES = {
-        1: "AS-EU Only",
-        2: "EU Only",
-        3: "AS Only",
-        4: "HK Only",
-        5: "SG+EU Only",
-    }
-
     REGION_LABELS = {"EU": "歐洲", "AS": "亞洲", "NA": "北美", "OC": "大洋洲"}
 
     def __init__(self) -> None:
         self.root = tk.Tk()
-        self.root.title("HG 伺服器鎖區工具 v4.0")
+        self.root.title("HG 伺服器鎖區工具 v5.0")
         self.root.resizable(False, False)
         try:
             self.root.iconbitmap(default=os.path.join(_get_base_dir(), "icon.ico"))
@@ -285,78 +274,61 @@ class HGLockerGUI:
     def _build_ui(self) -> None:
         self.root.configure(bg="#f0f0f0")
 
-        main = ttk.Frame(self.root, padding=16)
+        main = ttk.Frame(self.root, padding=12)
         main.pack(fill=tk.BOTH, expand=True)
 
         # 標題
         title = tk.Label(main, text="HG 伺服器鎖區工具", font=("Segoe UI", 18, "bold"),
                          bg="#f0f0f0", fg="#1a1a2e")
-        title.pack(pady=(0, 4))
+        title.pack(pady=(0, 2))
 
-        subtitle = tk.Label(main, text="雙向封鎖 · ipinfo.io 自動查詢", font=("Segoe UI", 9),
+        subtitle = tk.Label(main, text="雙向封鎖 · IP 自由組合", font=("Segoe UI", 9),
                             bg="#f0f0f0", fg="#666")
-        subtitle.pack(pady=(0, 12))
+        subtitle.pack(pady=(0, 8))
 
         # ── IP 分佈顯示 ──
-        self.ip_frame = ttk.LabelFrame(main, text="伺服器 IP 分佈", padding=8)
-        self.ip_frame.pack(fill=tk.X, pady=(0, 12))
+        ip_row = ttk.Frame(main)
+        ip_row.pack(fill=tk.X, pady=(0, 6))
         self.ip_labels: dict[str, tk.Label] = {}
-        ip_inner = ttk.Frame(self.ip_frame)
-        ip_inner.pack(fill=tk.X)
         for r in ("AS", "EU", "NA", "OC"):
-            row = ttk.Frame(ip_inner)
-            row.pack(fill=tk.X, pady=1)
-            tag = tk.Label(row, text=f"  {self.REGION_LABELS.get(r, r)} ({r}):",
-                           font=("Segoe UI", 9), anchor="w", bg="#f9f9f9")
-            tag.pack(side=tk.LEFT)
-            val = tk.Label(row, text="查詢中...", font=("Segoe UI", 9),
-                           anchor="w", bg="#f9f9f9", fg="#888")
-            val.pack(side=tk.LEFT, padx=(6, 0))
-            self.ip_labels[r] = val
+            lbl = tk.Label(ip_row, text=f"{self.REGION_LABELS.get(r, r)}: 查詢中...",
+                           font=("Segoe UI", 8), bg="#f0f0f0", fg="#888")
+            lbl.pack(side=tk.LEFT, padx=(0, 10))
+            self.ip_labels[r] = lbl
 
-        # ── 模式按鈕（2×2 網格） ──
-        btn_frame = ttk.Frame(main)
-        btn_frame.pack(pady=(0, 8))
+        # ── 伺服器列表（複選框） ──
+        self.srv_frame = ttk.LabelFrame(main, text="選擇要封鎖的伺服器", padding=6)
+        self.srv_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
+        self.server_checkboxes: list[tuple[ttk.Checkbutton, tk.BooleanVar, dict]] = []
 
-        btn_style = {"font": ("Segoe UI", 13, "bold"), "width": 14}
+        # 預留文字（初始化後會被 _populate_servers 取代）
+        self._tmp_srv_label = tk.Label(self.srv_frame, text="正在載入伺服器資料...",
+                                       font=("Segoe UI", 9), fg="#888")
+        self._tmp_srv_label.pack(padx=12, pady=8)
 
-        self.btn_1 = tk.Button(btn_frame, text="① AS-EU Only\n只留亞洲+歐洲", **btn_style,
-                               command=lambda: self._on_mode(1))
-        self.btn_1.grid(row=0, column=0, padx=5, pady=4)
+        # ── 操作按鈕 ──
+        action_frame = ttk.Frame(main)
+        action_frame.pack(fill=tk.X, pady=(0, 8))
 
-        self.btn_2 = tk.Button(btn_frame, text="② EU Only\n只留歐洲", **btn_style,
-                               command=lambda: self._on_mode(2))
-        self.btn_2.grid(row=0, column=1, padx=5, pady=4)
+        self.btn_block = tk.Button(action_frame, text="封鎖選中", font=("Segoe UI", 11, "bold"),
+                                   command=self._on_block, padx=12, pady=4)
+        self.btn_block.pack(side=tk.LEFT, padx=(0, 6))
 
-        self.btn_3 = tk.Button(btn_frame, text="③ AS Only\n只留亞洲", **btn_style,
-                               command=lambda: self._on_mode(3))
-        self.btn_3.grid(row=1, column=0, padx=5, pady=4)
+        self.btn_unblock = tk.Button(action_frame, text="解鎖", font=("Segoe UI", 11, "bold"),
+                                     command=self._on_unlock, padx=12, pady=4)
+        self.btn_unblock.pack(side=tk.LEFT, padx=6)
 
-        self.btn_4 = tk.Button(btn_frame, text="④ HK Only\n只留香港", **btn_style,
-                               command=lambda: self._on_mode(4))
-        self.btn_4.grid(row=1, column=1, padx=5, pady=4)
-
-        self.btn_5 = tk.Button(btn_frame, text="⑤ SG+EU Only\n只留星洲+歐洲", **btn_style,
-                               command=lambda: self._on_mode(5))
-        self.btn_5.grid(row=2, column=0, columnspan=2, padx=5, pady=4, sticky="ew")
-
-        # ── 清除按鈕 ──
-        self.btn_clear = tk.Button(main, text="⑥ 清除所有規則 Clear", font=("Segoe UI", 11, "bold"),
-                                   command=self._on_clear,
-                                   width=35, height=2)
-        self.btn_clear.pack(pady=(0, 10))
+        self.btn_clear = tk.Button(action_frame, text="清空所有", font=("Segoe UI", 11, "bold"),
+                                   command=self._on_clear, padx=12, pady=4)
+        self.btn_clear.pack(side=tk.LEFT, padx=6)
 
         # ── 分隔線 ──
         sep = ttk.Separator(main, orient=tk.HORIZONTAL)
-        sep.pack(fill=tk.X, pady=(0, 8))
+        sep.pack(fill=tk.X, pady=(0, 6))
 
         # ── 狀態列 ──
         status_frame = ttk.Frame(main)
-        status_frame.pack(fill=tk.X, pady=(0, 8))
-
-        self.lbl_mode = tk.Label(status_frame, text="目前模式: —", font=("Segoe UI", 10),
-                                 anchor="w", bg="#f0f0f0")
-        self.lbl_mode.pack(fill=tk.X)
+        status_frame.pack(fill=tk.X, pady=(0, 6))
 
         self.lbl_path = tk.Label(status_frame, text="遊戲路徑: 尚未設定", font=("Segoe UI", 10),
                                  anchor="w", bg="#f0f0f0")
@@ -371,44 +343,34 @@ class HGLockerGUI:
         bottom.pack(fill=tk.X)
 
         self.btn_fw = tk.Button(bottom, text="🛡 開啟防火牆", font=("Segoe UI", 10),
-                                command=self._open_firewall,
-                                padx=8, pady=4)
+                                command=self._open_firewall, padx=8, pady=4)
         self.btn_fw.pack(side=tk.LEFT, padx=(0, 4))
 
         self.btn_requery = tk.Button(bottom, text="🔄 重新查詢", font=("Segoe UI", 10),
-                                     command=self._on_requery,
-                                     padx=8, pady=4)
+                                     command=self._on_requery, padx=8, pady=4)
         self.btn_requery.pack(side=tk.LEFT, padx=4)
 
         self.btn_path = tk.Button(bottom, text="📁 變更路徑", font=("Segoe UI", 10),
-                                  command=self._on_change_path,
-                                  padx=8, pady=4)
+                                  command=self._on_change_path, padx=8, pady=4)
         self.btn_path.pack(side=tk.LEFT, padx=4)
-
-        # 狀態燈
-        self.lbl_status_light = tk.Label(bottom, text="●", font=("Segoe UI", 14),
-                                         fg="#adb5bd", bg="#f0f0f0")
-        self.lbl_status_light.pack(side=tk.RIGHT)
 
         # 禁用所有按鈕直到初始化完成
         self._set_buttons_enabled(False)
 
     def _set_buttons_enabled(self, enabled: bool) -> None:
         state = tk.NORMAL if enabled else tk.DISABLED
-        for btn in (self.btn_1, self.btn_2, self.btn_3, self.btn_4, self.btn_5,
-                     self.btn_clear, self.btn_requery, self.btn_path):
+        for btn in (self.btn_block, self.btn_unblock, self.btn_clear,
+                     self.btn_requery, self.btn_path, self.btn_fw):
             btn.configure(state=state)
 
     def _set_busy(self, busy: bool, msg: str = "") -> None:
         self.is_busy = busy
         state = tk.DISABLED if busy else tk.NORMAL
-        for btn in (self.btn_1, self.btn_2, self.btn_3, self.btn_4, self.btn_5, self.btn_clear):
+        for btn in (self.btn_block, self.btn_unblock, self.btn_clear):
             btn.configure(state=state)
-        # 底部按鈕（重新查詢、路徑）保持可用
         self.btn_requery.configure(state=state)
         self.btn_path.configure(state=state)
         self.lbl_busy.configure(text=msg)
-        self.lbl_status_light.configure(fg="#e07c24" if busy else "#2d6a4f")
         self.root.update_idletasks()
 
     def _show_ip_distribution(self) -> None:
@@ -433,7 +395,7 @@ class HGLockerGUI:
     def _init_session(self) -> None:
         """程式啟動時的背景初始化"""
         # 寫入記錄
-        log_raw(f"\n{'='*60}\n=== HG 鎖區工具 GUI v4.0 - {datetime.now():%Y-%m-%d %H:%M:%S} ===\n{'='*60}")
+        log_raw(f"\n{'='*60}\n=== HG 鎖區工具 GUI v5.0 - {datetime.now():%Y-%m-%d %H:%M:%S} ===\n{'='*60}")
 
         # 背景執行初始化
         def task() -> None:
@@ -478,6 +440,9 @@ class HGLockerGUI:
                 # 2. 更新 IP 顯示
                 self.root.after(0, self._show_ip_distribution)
 
+                # 3. 建立伺服器複選框
+                self.root.after(0, self._populate_servers)
+
                 # 4. 讀取／選擇路徑
                 cfg = load_config()
                 saved_path = cfg.get("hn_path", "").replace("/", "\\")
@@ -497,15 +462,8 @@ class HGLockerGUI:
                 else:
                     self.root.after(0, self._pick_path_dialog)
 
-                # 5. 更新模式狀態（只接受有效模式）
-                saved_mode = cfg.get("last_mode", "")
-                if saved_mode in VALID_MODES:
-                    self.root.after(0, lambda m=saved_mode: self.lbl_mode.configure(
-                        text=f"目前模式: {m}"))
-
-                # 6. 啟用按鈕
+                # 5. 啟用按鈕
                 self.root.after(0, lambda: self._set_buttons_enabled(True))
-                self.root.after(0, lambda: self.lbl_status_light.configure(fg="#2d6a4f"))
 
                 log_info("初始化完成")
             except Exception as e:
@@ -546,60 +504,57 @@ class HGLockerGUI:
 
     # ─── 操作處理 ───
 
-    def _get_hk_ip(self) -> str:
-        for s in self.servers_info:
-            if s.get("region") == "AS" and "HK" in s.get("country", "").upper():
-                return s["ip"]
-        return "135.136.10.86"
+    def _populate_servers(self) -> None:
+        """根據 self.servers_info 重建伺服器複選框"""
+        # 清除舊內容
+        for w in self.srv_frame.winfo_children():
+            w.destroy()
+        self.server_checkboxes.clear()
 
-    def _on_mode(self, mode: int) -> None:
+        region_order = ["AS", "EU", "NA", "OC"]
+        for rc in region_order:
+            region_servers = [s for s in self.servers_info if s.get("region") == rc]
+            if not region_servers:
+                continue
+            # 區域標題
+            label = self.REGION_LABELS.get(rc, rc)
+            hdr = tk.Label(self.srv_frame, text=f"  {label}（{rc}）:",
+                           font=("Segoe UI", 9, "bold"), anchor="w", bg="#f0f0f0")
+            hdr.pack(fill=tk.X, pady=(4, 0))
+            # 該區域的每個伺服器
+            for svr in region_servers:
+                var = tk.BooleanVar(value=False)
+                ip = svr["ip"]
+                country = svr.get("country", "?")
+                cb = ttk.Checkbutton(self.srv_frame, text=f"{ip}  ({country})",
+                                     variable=var)
+                cb.pack(anchor="w", padx=(24, 0))
+                self.server_checkboxes.append((cb, var, svr))
+
+    def _on_block(self) -> None:
         if self.is_busy:
             return
         if not self.hn_path:
             messagebox.showwarning("未設定路徑", "請先透過「變更路徑」選擇 HnG 遊戲資料夾。")
             return
 
-        mode_names = {
-            1: ("僅連亞歐 (AS-EU)", lambda x: x.get("region") in ("NA", "OC"), "AS-EU Only"),
-            2: ("僅連歐洲 (EU)", lambda x: x.get("region") != "EU", "EU Only"),
-            3: ("僅連亞洲 (AS)", lambda x: x.get("region") != "AS", "AS Only"),
-            4: ("僅連香港 (HK)", lambda x: x["ip"] != self._get_hk_ip(), "HK Only"),
-            5: ("僅連星歐 (SG+EU)", lambda x: x.get("region") in ("NA", "OC")
-                or (x.get("region") == "AS" and "HK" in x.get("country", "").upper()), "SG+EU Only"),
-        }
-        label, filter_fn, mode_save = mode_names[mode]
-        self._run_blocking(label, filter_fn, mode_save)
+        # 收集選中的伺服器
+        selected = [svr for _, var, svr in self.server_checkboxes if var.get()]
+        if not selected:
+            messagebox.showinfo("封鎖", "請先勾選要封鎖的伺服器")
+            return
 
-    def _run_blocking(self, label: str, filter_fn, mode_save: str) -> None:
-        self._set_busy(True, f"正在執行 {label}…")
+        self._set_busy(True, f"正在封鎖 {len(selected)} 個 IP…")
 
         def task() -> None:
             try:
-                log_action(f"開始 {label}")
-
-                # 清除舊規則
-                remove_all_rules_silent()
-                time.sleep(0.3)
-
-                # 過濾要封鎖的 IP
-                block_list = [x for x in self.servers_info if filter_fn(x)]
                 total_rules = 0
-                for item in block_list:
+                for item in selected:
                     total_rules += add_block_rules_silent(item["ip"], item["country"])
-
-                # 儲存模式
-                if self.hn_path:
-                    save_config(self.hn_path, mode_save)
-
-                log_action(f"{label} 完成：{len(block_list)} 個 IP，{total_rules} 條規則")
-
-                self.root.after(0, lambda: self.lbl_mode.configure(text=f"目前模式: {mode_save}"))
+                log_action(f"封鎖 {len(selected)} 個 IP: {', '.join(s['ip'] for s in selected)}")
                 self.root.after(0, lambda: messagebox.showinfo(
                     "封鎖完成",
-                    f"{label}\n\n"
-                    f"已封鎖 {len(block_list)} 個 IP\n"
-                    f"共建立 {total_rules} 條防火牆規則\n\n"
-                    f"當前模式：{mode_save}"
+                    f"已封鎖 {len(selected)} 個 IP\n共建立 {total_rules} 條防火牆規則"
                 ))
             except Exception as e:
                 log_error(f"封鎖失敗: {e}")
@@ -608,6 +563,56 @@ class HGLockerGUI:
                 self.root.after(0, lambda: self._set_busy(False, "就緒"))
 
         threading.Thread(target=task, daemon=True).start()
+
+    def _on_unlock(self) -> None:
+        if self.is_busy:
+            return
+        rules = get_rule_lines("HG-")
+        if not rules:
+            messagebox.showinfo("解鎖", "目前無任何活躍的 HG 規則")
+            return
+
+        # 彈出解鎖對話框
+        top = tk.Toplevel(self.root)
+        top.title("選擇要解鎖的規則")
+        top.transient(self.root)
+        top.grab_set()
+        top.resizable(False, False)
+
+        tk.Label(top, text="選擇要刪除的規則：", font=("Segoe UI", 10)).pack(padx=12, pady=(10, 4))
+
+        frame = ttk.Frame(top)
+        frame.pack(padx=12, pady=4, fill=tk.BOTH, expand=True)
+
+        rule_vars: list[tk.BooleanVar] = []
+        for name in sorted(rules):
+            var = tk.BooleanVar(value=False)
+            cb = ttk.Checkbutton(frame, text=name, variable=var)
+            cb.pack(anchor="w")
+            rule_vars.append(var)
+
+        btn_frame = ttk.Frame(top)
+        btn_frame.pack(pady=8)
+
+        def do_delete() -> None:
+            selected = [r for r, v in zip(sorted(rules), rule_vars) if v.get()]
+            if not selected:
+                messagebox.showinfo("解鎖", "未選擇任何規則", parent=top)
+                return
+            if not messagebox.askyesno("確認", f"確定刪除 {len(selected)} 條規則？", parent=top):
+                return
+
+            def task() -> None:
+                for name in selected:
+                    run_netsh(["delete", "rule", f'name={name}'])
+                log_action(f"解鎖: 刪除 {len(selected)} 條規則")
+                self.root.after(0, top.destroy)
+                self.root.after(0, lambda: messagebox.showinfo("完成", f"已刪除 {len(selected)} 條規則"))
+
+            threading.Thread(target=task, daemon=True).start()
+
+        ttk.Button(btn_frame, text="刪除選中", command=do_delete).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btn_frame, text="取消", command=top.destroy).pack(side=tk.LEFT, padx=4)
 
     def _on_clear(self) -> None:
         if self.is_busy:
@@ -620,9 +625,7 @@ class HGLockerGUI:
         def task() -> None:
             try:
                 count = remove_all_rules_silent()
-                save_config(self.hn_path, "無")
-                self.root.after(0, lambda: self.lbl_mode.configure(text="目前模式: 無"))
-                log_action("已執行 Clear")
+                log_action("已執行清空所有規則")
                 self.root.after(0, lambda: messagebox.showinfo(
                     "清除完成",
                     f"已移除 {count} 條防火牆規則" if count else "目前無任何 HG 規則"
